@@ -21,17 +21,72 @@
 
 
 __all__ = ['CheckVisitTask',
-           'CheckVisitTaskConfig', ]
+           'CheckVisitTaskConfig',
+           ]
 
 
 import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 # import lsst.afw.image as afwImage
-# import lsst.afw.math as afwMath
-# import lsst.afw.display as afwDisplay
-# from lsst.cp.pipe.utils import countMaskedPixels
+import lsst.afw.math as afwMath
+import lsst.log as lsstLog
+from lsst.cp.pipe.utils import countMaskedPixels
 
-from lsst.ip.isr import IsrTask
+from lsst.ip.isr import IsrTask, AssembleCcdTask
+from astro_metadata_translator import ObservationInfo
+
+
+class BasicTestTask(pipeBase.Task):
+    logger = lsstLog.getLogger(' ')  # empty string results in name being "root"
+
+    def computeImageStats(self, exposure):
+        opts = afwMath.MEAN | afwMath.STDEV | afwMath.MEANCLIP | afwMath.STDEVCLIP
+        stats = afwMath.makeStatistics(exposure.maskedImage, opts)
+        mean = stats.getValue(afwMath.MEAN)
+        std = stats.getValue(afwMath.STDEV)
+        meanClip = stats.getValue(afwMath.MEANCLIP)
+        stdClip = stats.getValue(afwMath.STDEVCLIP)
+
+        # add min, max, percentiles xxx
+
+        nBad = countMaskedPixels(exposure, 'BAD')
+        msgs = []
+        msgs.append(f"Mean         = {mean:.2f}")
+        msgs.append(f"Clipped mean = {meanClip:.2f}")
+        msgs.append(f"Std dev      = {std:.2f}")
+        msgs.append(f"Clipped std  = {stdClip:.2f}")
+        msgs.append(f"nBad pix     = {nBad}")
+
+        for msg in msgs:
+            self.logger.info(msg)
+
+
+class BiasTestConfig(pexConfig.Config):
+    someOption = pexConfig.Field(
+        doc="An option",
+        dtype=bool,
+        default=True,
+    )
+
+
+class BiasTestTask(BasicTestTask):
+    ConfigClass = BiasTestConfig
+
+    def runDataRef(self, dataRef, exposure):
+        bias = dataRef.get('bias')
+        detector = exposure.getDetector()
+
+        # sanity checking - these should NEVER fail
+        assert bias.getDetector().getName() == detector.getName()
+        assert bias.getDetector().getId() == detector.getId()
+
+        if bias.image.array.shape != exposure.image.array.shape:
+            raise RuntimeError("Bias and exposure are different shapes")
+
+        # import ipdb as pdb; pdb.set_trace()
+
+    def checkSomething(self, exposure, bias):
+        pass
 
 
 class CheckVisitTaskConfig(pexConfig.Config):
@@ -51,6 +106,14 @@ class CheckVisitTaskConfig(pexConfig.Config):
         doc="The key for the butler to use by which to check whether images are darks or flats",
         default='imageType',
     )
+    biasTask = pexConfig.ConfigurableField(
+        target=BiasTestTask,
+        doc="CCD assembly task",
+    )
+    assembleCcd = pexConfig.ConfigurableField(
+        target=AssembleCcdTask,
+        doc="CCD assembly task",
+    )
 
 
 class CheckVisitTask(pipeBase.CmdLineTask):
@@ -62,8 +125,8 @@ class CheckVisitTask(pipeBase.CmdLineTask):
     def __init__(self, *args, **kwargs):
         pipeBase.CmdLineTask.__init__(self, *args, **kwargs)
         self.makeSubtask("isr")
-        self.config.validate()
-        self.config.freeze()
+        self.makeSubtask("assembleCcd")
+        self.makeSubtask("biasTask")
 
     @pipeBase.timeMethod
     def runDataRef(self, dataRef):
@@ -79,9 +142,6 @@ class CheckVisitTask(pipeBase.CmdLineTask):
         -------
         result : `lsst.pipe.base.Struct`
             Result struct with Components:
-
-            - ``defects`` : `lsst.meas.algorithms.Defect`
-              The defects found by the task.
             - ``exitStatus`` : `int`
               The exit code.
         """
@@ -90,6 +150,41 @@ class CheckVisitTask(pipeBase.CmdLineTask):
         msg = "Calculating defects using %s visits for detector %s"
         self.log.info(msg, dataRef.dataId['visit'], detNum)
 
-        import ipdb as pdb; pdb.set_trace()
+        visit = dataRef.dataId['visit']
+        obsInfoImageType = ObservationInfo(dataRef.get("raw_md")).observation_type
+        registryImageType = dataRef.getButler().queryMetadata('raw', 'imageType', visit=visit)[0]
+
+        self.log.debug('imageType from ObservationInfo = %s' % obsInfoImageType)
+        self.log.debug('imageType from registry        = %s' % registryImageType)
+
+        # imageType = self.getImageType(dataRef)
+        unassembledExp = dataRef.get('raw')
+        exp = self.assembleCcd.assembleCcd(unassembledExp)
+        self.biasTask.computeImageStats(exp)
+        self.biasTask.runDataRef(dataRef, exp)
+        # import ipdb as pdb; pdb.set_trace()
+
+        return self
 
         return pipeBase.Struct(exitStatus=0)
+
+    def checkHeaders(self, dataRef):
+        raw_md = dataRef.get("raw_md")
+        obsInfo = ObservationInfo(raw_md)
+
+        expTime = dataRef.getButler().queryMetadata('raw', 'expTime', visit=dataRef.dataId['visit'])[0]
+        # xxx continue writing here
+
+        # checks: exptime is >0 for nonbias
+        # checks: exptime is ==0 for bias
+        # some sanity check for filter
+        # some sanity check for temps?
+        # sequencer check
+
+
+
+    @staticmethod
+    def getImageType(dataRef, useObsInfoMethod=False):
+        if useObsInfoMethod:
+            return ObservationInfo(dataRef.get("raw_md")).observation_type
+        return dataRef.getButler().queryMetadata('raw', 'imageType', visit=dataRef.dataId['visit'])[0]
