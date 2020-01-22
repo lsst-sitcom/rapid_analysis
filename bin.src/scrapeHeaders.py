@@ -26,8 +26,8 @@ def main():
     noWarn = args.noWarn
     libraryLocation = args.libraryLocation
 
-    # import to use absolute paths always, as these are used to key the dicts
-    # and these are also pickled, so need to be the same no matter where
+    # important to use absolute paths always, as these are used to key the
+    # dicts and these are also pickled, so need to be the same no matter where
     # this is run from
     files = [abspath(f) for f in glob.glob(args.files)]
 
