@@ -169,10 +169,12 @@ class CheckVisitTask(pipeBase.CmdLineTask):
         return pipeBase.Struct(exitStatus=0)
 
     def checkHeaders(self, dataRef):
-        raw_md = dataRef.get("raw_md")
-        obsInfo = ObservationInfo(raw_md)
+        return
+        # raw_md = dataRef.get("raw_md")
+        # obsInfo = ObservationInfo(raw_md)
 
-        expTime = dataRef.getButler().queryMetadata('raw', 'expTime', visit=dataRef.dataId['visit'])[0]
+        # expTime = dataRef.getButler().queryMetadata('raw', 'expTime', ...
+        # ... visit=dataRef.dataId['visit'])[0]
         # xxx continue writing here
 
         # checks: exptime is >0 for nonbias
@@ -180,8 +182,6 @@ class CheckVisitTask(pipeBase.CmdLineTask):
         # some sanity check for filter
         # some sanity check for temps?
         # sequencer check
-
-
 
     @staticmethod
     def getImageType(dataRef, useObsInfoMethod=False):

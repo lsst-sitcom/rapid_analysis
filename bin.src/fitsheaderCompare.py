@@ -3,7 +3,7 @@
 import argparse
 import glob
 import sys
-from headerFunctions import compareHeaders
+from lsst.rapid.analysis.headerFunctions import compareHeaders
 
 
 def main():

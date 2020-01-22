@@ -4,7 +4,7 @@ import argparse
 import glob
 import sys
 from os.path import abspath
-from headerFunctions import keyValuesSetFromFiles
+from lsst.rapid.analysis.headerFunctions import keyValuesSetFromFiles
 
 
 def main():
