@@ -168,7 +168,8 @@ def sorted(inlist, replacementValue="<BLANK VALUE>"):
     return output
 
 
-def keyValuesSetFromFiles(fileList, keys, joinKeys, noWarn=False, printResults=True, libraryLocation=None):
+def keyValuesSetFromFiles(fileList, keys, joinKeys, noWarn=False, printResults=True,
+                          libraryLocation=None, printPerFile=False):
     """For a list of FITS files, get the set of values for the given keys.
 
     Parameters
@@ -187,6 +188,11 @@ def keyValuesSetFromFiles(fileList, keys, joinKeys, noWarn=False, printResults=T
         of all the individual values, as some combinations may never happen.
     """
     print(f"Scraping headers from {len(fileList)} files...")
+    if printPerFile and (len(fileList)*len(keys) > 200):
+        print(f"You asked to print headers per-file, for {len(fileList)} files x {len(keys)} keys.")
+        cont = input("Are you sure? Press y to continue, anything else to quit:")
+        if cont.lower()[0] != 'y':
+            exit()
 
     headerDict, hashDict = buildHashAndHeaderDicts(fileList, libraryLocation=libraryLocation)
 
@@ -204,6 +210,11 @@ def keyValuesSetFromFiles(fileList, keys, joinKeys, noWarn=False, printResults=T
         for key in keys:
             if key in header:
                 kValues[key].add(header[key])
+                if printPerFile:
+                    print(f"{filename}\t{key}\t{header[key]}")
+                    if len(keys) > 1 and key == keys[-1]:
+                        # newline between files if multikey
+                        print()
             else:
                 if not noWarn:
                     logger.warning(f"{key} not found in header of {filename}")

@@ -17,6 +17,8 @@ def main():
                         help="Keys to return joined together.")
     parser.add_argument("-l", metavar='libraryLocation', dest='libraryLocation', type=str,
                         help="Location of library for precomputed results.")
+    parser.add_argument("-p", action='store_true', default=False, dest='printPerFile',
+                        help="Print all keys for each file?")
     parser.add_argument("--noWarn", action='store_true', help="Suppress warnings for keys not in header?",
                         default=False, dest='noWarn')
 
@@ -25,6 +27,7 @@ def main():
     joinKeys = args.joinKeys
     noWarn = args.noWarn
     libraryLocation = args.libraryLocation
+    printPerFile = args.printPerFile
 
     # important to use absolute paths always, as these are used to key the
     # dicts and these are also pickled, so need to be the same no matter where
@@ -40,7 +43,8 @@ def main():
         print('Found no files matching: ' + args.files, file=sys.stderr)
         sys.exit(1)
 
-    keyValuesSetFromFiles(files, keys, joinKeys, noWarn, libraryLocation=libraryLocation)
+    keyValuesSetFromFiles(files, keys, joinKeys, noWarn, libraryLocation=libraryLocation,
+                          printPerFile=printPerFile)
 
 
 if __name__ == '__main__':
