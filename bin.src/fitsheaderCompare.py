@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
 import argparse
-import glob
-import sys
 from lsst.rapid.analysis.headerFunctions import compareHeaders
 
 
