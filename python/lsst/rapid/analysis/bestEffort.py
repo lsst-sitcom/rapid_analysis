@@ -32,9 +32,11 @@ from lsst.pipe.tasks.characterizeImage import CharacterizeImageTask
 
 class BestEffortIsr():
 
-    def __init__(self, repodir):
+    def __init__(self, repodir, defaultExtraIsrOptions={}):
+        """defaultExtraIsrOptions is a dict of options applied to all images"""
         self.repodir = repodir
         self.butler = dafPersist.Butler(repodir)
+        self.defaultExtraIsrOptions = defaultExtraIsrOptions
         self.imCharConfig = CharacterizeImageTask.ConfigClass()
         self.imCharConfig.doMeasurePsf = False
         self.imCharConfig.doApCorr = False
@@ -55,7 +57,16 @@ class BestEffortIsr():
             # make copy before running and return original here
             return exp
 
-    def getExposure(self, visitNum):
+    @staticmethod
+    def _applyConfigOverrides(config, overrides):
+        for option, value in overrides.items():
+            if hasattr(config, option):
+                setattr(config, option, value)
+            else:
+                print(f"Override option {option} not found in isrConfig")
+
+    def getExposure(self, visitNum, extraOptions={}):
+        """extraOptions is a dict of options applied to this image only"""
         try:
             raw = self.butler.get('raw', visit=visitNum)
         except butlerExcept.NoResults:
@@ -65,6 +76,9 @@ class BestEffortIsr():
         isrConfig.doWrite = False  # always off
         isrConfig.doSaturationInterpolation = False
         isrConfig.overscanNumLeadingColumnsToSkip = 20
+
+        self._applyConfigOverrides(isrConfig, self.defaultExtraIsrOptions)
+        self._applyConfigOverrides(isrConfig, extraOptions)
 
         # initially all off
         isrConfig.doBias = False
