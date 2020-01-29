@@ -63,6 +63,8 @@ class BestEffortIsr():
 
         isrConfig = IsrTask.ConfigClass()
         isrConfig.doWrite = False  # always off
+        isrConfig.doSaturationInterpolation = False
+        isrConfig.overscanNumLeadingColumnsToSkip = 20
 
         # initially all off
         isrConfig.doBias = False
@@ -78,8 +80,6 @@ class BestEffortIsr():
             try:
                 item = self.butler.get(component, visit=visitNum)
                 isrDict[component] = item
-            # except OperationalError as e:
-                # print(f'Caught {e} - update your template/?')
             except AttributeError as e:  # catches mapper problems
                 print(f'Caught {e} - update your mapper?')
             except (butlerExcept.NoResults, RuntimeError):
