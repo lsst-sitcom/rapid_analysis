@@ -27,6 +27,7 @@ from lsst.pipe.tasks.characterizeImage import CharacterizeImageTask
 # TODO: turn prints into log messages
 # TODO: refactor if necessary
 # TODO: add attempt for fringe once registry & templates are fixed
+# TODO: readd defects attempt once you can catch OperationalError
 
 
 class BestEffortIsr():
@@ -71,12 +72,14 @@ class BestEffortIsr():
         isrConfig.doFringe = False
         isrConfig.doDefect = False
 
-        isrParts = ['bias', 'dark', 'flat', 'linearizer', 'defect']
+        isrParts = ['bias', 'dark', 'flat', 'linearizer']  # , 'defects']
         isrDict = {}
         for component in isrParts:
             try:
                 item = self.butler.get(component, visit=visitNum)
                 isrDict[component] = item
+            # except OperationalError as e:
+                # print(f'Caught {e} - update your template/?')
             except AttributeError as e:  # catches mapper problems
                 print(f'Caught {e} - update your mapper?')
             except (butlerExcept.NoResults, RuntimeError):
@@ -98,7 +101,7 @@ class BestEffortIsr():
         if 'fringe' in isrDict.keys():
             isrConfig.doFringe = True
             print('Running with fringe correction')
-        if 'defect' in isrDict.keys():
+        if 'defects' in isrDict.keys():
             isrConfig.doDefect = True
             print('Running with defect correction')
 
