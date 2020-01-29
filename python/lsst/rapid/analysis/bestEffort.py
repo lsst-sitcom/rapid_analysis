@@ -65,12 +65,25 @@ class BestEffortIsr():
             else:
                 print(f"Override option {option} not found in isrConfig")
 
-    def getExposure(self, visitNum, extraOptions={}):
+    @staticmethod
+    def _parseVisitOrDataId(visitOrDataId, **kwargs):
+        if type(visitOrDataId) == int:
+            _dataId = {'visit': visitOrDataId}
+        elif type(visitOrDataId) == dict:
+            _dataId = visitOrDataId
+            _dataId.update(kwargs)
+        else:
+            raise RuntimeError(f"Invalid visit or dataId type {visitOrDataId}")
+        return _dataId
+
+    def getExposure(self, visitOrDataId, extraOptions={}, **kwargs):
         """extraOptions is a dict of options applied to this image only"""
+        dataId = self._parseVisitOrDataId(visitOrDataId, **kwargs)
+
         try:
-            raw = self.butler.get('raw', visit=visitNum)
+            raw = self.butler.get('raw', **dataId)
         except butlerExcept.NoResults:
-            raise RuntimeError(f"Failed to retrieve raw for visit {visitNum}")
+            raise RuntimeError(f"Failed to retrieve raw for visit {dataId}")
 
         # default options that are probably good for most engineering time
         isrConfig = IsrTask.ConfigClass()
@@ -95,7 +108,7 @@ class BestEffortIsr():
         isrDict = {}
         for component in isrParts:
             try:
-                item = self.butler.get(component, visit=visitNum)
+                item = self.butler.get(component, **dataId)
                 isrDict[component] = item
             except AttributeError as e:  # catches mapper problems
                 print(f'Caught {e} - update your mapper?')
