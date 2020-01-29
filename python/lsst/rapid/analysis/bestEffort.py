@@ -41,7 +41,7 @@ class BestEffortIsr():
         self.imCharTask = CharacterizeImageTask(config=self.imCharConfig)
 
     def reloadButler(self):
-        self.butler = dafPersist.Butler(self.repoDir)
+        self.butler = dafPersist.Butler(self.repodir)
 
     def _repairCosmics(self, exposure):
         try:
@@ -79,7 +79,7 @@ class BestEffortIsr():
                 isrDict[component] = item
             except AttributeError as e:  # catches mapper problems
                 print(f'Caught {e} - update your mapper?')
-            except (butlerExcept.NoResults, RuntimeError) as e:
+            except (butlerExcept.NoResults, RuntimeError):
                 pass
 
         # ugly block, but less ugly than setattr and ''.capitalize() etc
