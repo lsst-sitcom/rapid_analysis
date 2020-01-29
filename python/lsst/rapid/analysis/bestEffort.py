@@ -72,12 +72,15 @@ class BestEffortIsr():
         except butlerExcept.NoResults:
             raise RuntimeError(f"Failed to retrieve raw for visit {visitNum}")
 
+        # default options that are probably good for most engineering time
         isrConfig = IsrTask.ConfigClass()
-        isrConfig.doWrite = False  # always off
+        isrConfig.doWrite = False
         isrConfig.doSaturationInterpolation = False
         isrConfig.overscanNumLeadingColumnsToSkip = 20
 
+        # apply general overrides
         self._applyConfigOverrides(isrConfig, self.defaultExtraIsrOptions)
+        # apply per-image overrides
         self._applyConfigOverrides(isrConfig, extraOptions)
 
         # initially all off
