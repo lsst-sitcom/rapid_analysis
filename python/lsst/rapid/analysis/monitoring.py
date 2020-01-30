@@ -55,10 +55,14 @@ class Monitor():
         return dataId, visitNum
 
     def run(self, duration=-1):
-        lastDisplayed = -1
 
-        # while True:
-        for i in range(10):
+        if duration == -1:
+            nLoops = 1e9
+        else:
+            nLoops = duration//self.cadence
+
+        lastDisplayed = -1
+        for i in range(nLoops):
             print(f'loop {i}')
             self.reloadButler()  # must be at start not end due to continue
 
