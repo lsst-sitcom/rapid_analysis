@@ -41,6 +41,7 @@ class BestEffortIsr():
         self.imCharConfig.doMeasurePsf = False
         self.imCharConfig.doApCorr = False
         self.imCharConfig.doDeblend = False
+        self.imCharConfig.repair.cosmicray.nCrPixelMax = 100000
         self.imCharTask = CharacterizeImageTask(config=self.imCharConfig)
 
     def reloadButler(self):
@@ -49,13 +50,13 @@ class BestEffortIsr():
     def _repairCosmics(self, exposure):
         try:
             print("Running cosmic ray repair")
-            exp = self.imCharTask.run(exposure).exposure
-            return exp
+            exposure = self.imCharTask.run(exposure).exposure
+            return exposure
         except Exception as e:
             print(f'During CR repair caught: {e}')
             # If the failed attempt turns out to mess up the image in place
             # make copy before running and return original here
-            return exp
+            return exposure
 
     @staticmethod
     def _applyConfigOverrides(config, overrides):
