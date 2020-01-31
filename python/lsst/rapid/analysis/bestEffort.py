@@ -48,6 +48,7 @@ class BestEffortIsr():
         self.butler = dafPersist.Butler(self.repodir)
 
     def _repairCosmics(self, exposure):
+        # TODO: make this a primitive
         try:
             print("Running cosmic ray repair")
             exposure = self.imCharTask.run(exposure).exposure
@@ -77,7 +78,7 @@ class BestEffortIsr():
             raise RuntimeError(f"Invalid visit or dataId type {visitOrDataId}")
         return _dataId
 
-    def getExposure(self, visitOrDataId, extraOptions={}, **kwargs):
+    def getExposure(self, visitOrDataId, extraOptions={}, skipCosmics=False, **kwargs):
         """extraOptions is a dict of options applied to this image only"""
         dataId = self._parseVisitOrDataId(visitOrDataId, **kwargs)
 
@@ -138,6 +139,8 @@ class BestEffortIsr():
 
         isrTask = IsrTask(config=isrConfig)
         postIsr = isrTask.run(raw, **isrDict).exposure
-        postCosmicRepair = self._repairCosmics(postIsr)
+        if not skipCosmics:
+            postCosmicRepair = self._repairCosmics(postIsr)
+            return postCosmicRepair
 
-        return postCosmicRepair
+        return postIsr
