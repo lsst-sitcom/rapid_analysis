@@ -23,6 +23,7 @@ from lsst.ip.isr import IsrTask
 import lsst.daf.persistence as dafPersist
 import lsst.daf.persistence.butlerExceptions as butlerExcept
 from lsst.pipe.tasks.characterizeImage import CharacterizeImageTask
+from lsst.meas.algorithms.installGaussianPsf import InstallGaussianPsfTask
 
 # TODO: turn prints into log messages
 # TODO: refactor if necessary
@@ -41,17 +42,19 @@ class BestEffortIsr():
         self.imCharConfig.doMeasurePsf = False
         self.imCharConfig.doApCorr = False
         self.imCharConfig.doDeblend = False
-        self.imCharConfig.repair.cosmicray.nCrPixelMax = 100000
+        self.imCharConfig.repair.cosmicray.nCrPixelMax = 200000
         self.imCharTask = CharacterizeImageTask(config=self.imCharConfig)
 
     def reloadButler(self):
         self.butler = dafPersist.Butler(self.repodir)
 
     def _repairCosmics(self, exposure):
-        # TODO: make this a primitive
         try:
             print("Running cosmic ray repair")
-            exposure = self.imCharTask.run(exposure).exposure
+            installPsfTask = InstallGaussianPsfTask()
+            installPsfTask.run(exposure)
+            # only run the .repair part to avoid general background subtraction
+            self.imCharTask.repair.run(exposure)
             return exposure
         except Exception as e:
             print(f'During CR repair caught: {e}')
@@ -140,7 +143,6 @@ class BestEffortIsr():
         isrTask = IsrTask(config=isrConfig)
         postIsr = isrTask.run(raw, **isrDict).exposure
         if not skipCosmics:
-            postCosmicRepair = self._repairCosmics(postIsr)
-            return postCosmicRepair
+            postIsr = self._repairCosmics(postIsr)
 
         return postIsr
