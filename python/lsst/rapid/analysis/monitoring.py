@@ -40,7 +40,12 @@ class Monitor():
         self.bestEffort = BestEffortIsr(repoDir)
 
     def reloadButler(self):
-        self.butler = dafPersist.Butler(self.repoDir)
+        try:
+            self.butler = dafPersist.Butler(self.repoDir)
+        except AttributeError:  # re-instantiating mid-ingest fails
+            print('Sleeping due to AttributeError')
+            sleep(5)
+            self.butler = dafPersist.Butler(self.repoDir)
 
     def _getLatestVisitNum(self):
         return self.butler.queryMetadata('raw', 'visit')[-1]
