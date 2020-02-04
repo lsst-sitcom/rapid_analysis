@@ -33,10 +33,24 @@ from lsst.meas.algorithms.installGaussianPsf import InstallGaussianPsfTask
 
 class BestEffortIsr():
 
-    def __init__(self, repodir, defaultExtraIsrOptions={}):
-        """defaultExtraIsrOptions is a dict of options applied to all images"""
-        self.repodir = repodir
-        self.butler = dafPersist.Butler(repodir)
+    def __init__(self, repodir='', defaultExtraIsrOptions={}, butler=None):
+        """Instantiate a BestEffortIsr object.
+
+        Butler can only be reloaded if called with `repodir` option.
+        defaultExtraIsrOptions is a dict of options applied to all images."""
+        if not repodir and butler is None:
+            raise RuntimeError(f"You must either supply a repo dir or a butler")
+        if repodir and butler is not None:
+            msg = f"Ambiguous instantiation. You can either supply a repo dir OR a butler, but not both"
+            raise RuntimeError(msg)
+
+        if butler:
+            self.butler = butler
+            print("WARNING: instantiated with a butler - new images in the repo will not be found")
+        else:
+            self.repodir = repodir
+            self.butler = dafPersist.Butler(repodir)
+
         self.defaultExtraIsrOptions = defaultExtraIsrOptions
         self.imCharConfig = CharacterizeImageTask.ConfigClass()
         self.imCharConfig.doMeasurePsf = False
