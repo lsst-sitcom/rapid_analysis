@@ -85,24 +85,24 @@ class BestEffortIsr():
                 print(f"Override option {option} not found in isrConfig")
 
     @staticmethod
-    def _parseVisitOrDataId(visitOrDataId, **kwargs):
-        if type(visitOrDataId) == int:
-            _dataId = {'visit': visitOrDataId}
-        elif type(visitOrDataId) == dict:
-            _dataId = visitOrDataId
+    def _parseExpIdOrDataId(expIdOrDataId, **kwargs):
+        if type(expIdOrDataId) == int:
+            _dataId = {'expId': expIdOrDataId}
+        elif type(expIdOrDataId) == dict:
+            _dataId = expIdOrDataId
             _dataId.update(kwargs)
         else:
-            raise RuntimeError(f"Invalid visit or dataId type {visitOrDataId}")
+            raise RuntimeError(f"Invalid expId or dataId type {expIdOrDataId}")
         return _dataId
 
-    def getExposure(self, visitOrDataId, extraOptions={}, skipCosmics=False, **kwargs):
+    def getExposure(self, expIdOrDataId, extraOptions={}, skipCosmics=False, **kwargs):
         """extraOptions is a dict of options applied to this image only"""
-        dataId = self._parseVisitOrDataId(visitOrDataId, **kwargs)
+        dataId = self._parseExpIdOrDataId(expIdOrDataId, **kwargs)
 
         try:
             raw = self.butler.get('raw', **dataId)
         except butlerExcept.NoResults:
-            raise RuntimeError(f"Failed to retrieve raw for visit {dataId}")
+            raise RuntimeError(f"Failed to retrieve raw for exp {dataId}")
 
         # default options that are probably good for most engineering time
         isrConfig = IsrTask.ConfigClass()
