@@ -20,16 +20,14 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import lsst.daf.persistence as dafPersist
-# import lsst.daf.persistence.butlerExceptions as butlerExcept
-# from .bestEffort import BestEffortIsr ### xxx put this back in
-from lsst.rapid.analysis.bestEffort import BestEffortIsr
+from .bestEffort import BestEffortIsr
 from time import sleep
 
 # TODO: maybe add option to create display and return URL?
 
 
 class Monitor():
-    cadence = 2  # in seconds
+    cadence = 1  # in seconds
     runIsr = True
 
     def __init__(self, repoDir, fireflyDisplay, **kwargs):
@@ -39,41 +37,30 @@ class Monitor():
         self.butler = dafPersist.Butler(repoDir)
         self.bestEffort = BestEffortIsr(repoDir)
 
-    def reloadButler(self):
-        try:
-            self.butler = dafPersist.Butler(self.repoDir)
-        except AttributeError:  # re-instantiating mid-ingest fails
-            print('Sleeping due to AttributeError')
-            sleep(5)
-            self.butler = dafPersist.Butler(self.repoDir)
+    def _getLatestExpId(self):
+        return sorted(self.butler.queryMetadata('raw', 'expId'))[-1]
 
-    def _getLatestVisitNum(self):
-        return self.butler.queryMetadata('raw', 'visit')[-1]
+    def _getDayObsSeqNumFromExpId(self, expId):
+        return self.butler.queryMetadata('raw', ['dayObs', 'seqNum'], expId=expId)[0]
 
-    def _getDayObsSeqNumFromVisitNum(self, visitNum):
-        return self.butler.queryMetadata('raw', ['dayObs', 'seqNum'], visit=visitNum)[0]
-
-    def _getLatestImageDataIdAndVisitNum(self):
-        visitNum = self._getLatestVisitNum()
-        dayObs, seqNum = self._getDayObsSeqNumFromVisitNum(visitNum)
+    def _getLatestImageDataIdAndExpId(self):
+        expId = self._getLatestExpId()
+        dayObs, seqNum = self._getDayObsSeqNumFromExpId(expId)
         dataId = {'dayObs': dayObs, 'seqNum': seqNum}
-        return dataId, visitNum
+        return dataId, expId
 
-    def run(self, duration=-1):
+    def run(self, durationInSeconds=-1):
 
-        if duration == -1:
-            nLoops = 1e9
+        if durationInSeconds == -1:
+            nLoops = int(1e9)
         else:
-            nLoops = duration//self.cadence
+            nLoops = int(durationInSeconds//self.cadence)
 
         lastDisplayed = -1
         for i in range(nLoops):
-            print(f'loop {i}')
-            self.reloadButler()  # must be at start not end due to continue
+            dataId, expId = self._getLatestImageDataIdAndExpId()
 
-            dataId, visit = self._getLatestImageDataIdAndVisitNum()
-
-            if lastDisplayed == visit:
+            if lastDisplayed == expId:
                 sleep(self.cadence)
                 continue
 
@@ -82,8 +69,8 @@ class Monitor():
             else:
                 exp = self.butler.get('raw', **dataId)
 
+            print(f"Displaying {dataId}...")
             self.display.mtv(exp, title=str(dataId))
-            lastDisplayed = visit
-            sleep(self.cadence)
+            lastDisplayed = expId
 
         return
