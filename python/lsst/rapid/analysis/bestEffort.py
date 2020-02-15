@@ -28,7 +28,6 @@ from lsst.meas.algorithms.installGaussianPsf import InstallGaussianPsfTask
 # TODO: turn prints into log messages
 # TODO: refactor if necessary
 # TODO: add attempt for fringe once registry & templates are fixed
-# TODO: readd defects attempt once you can catch OperationalError
 
 
 class BestEffortIsr():
@@ -123,7 +122,7 @@ class BestEffortIsr():
         isrConfig.doFringe = False
         isrConfig.doDefect = False
 
-        isrParts = ['bias', 'dark', 'flat', 'linearizer']  # , 'defects']
+        isrParts = ['bias', 'dark', 'flat', 'linearizer', 'defects']
         isrDict = {}
         for component in isrParts:
             try:
@@ -135,6 +134,7 @@ class BestEffortIsr():
                 pass
 
         # ugly block, but less ugly than setattr and ''.capitalize() etc
+        print('Running best effort isr...')
         if 'bias' in isrDict.keys():
             isrConfig.doBias = True
             print('Running with bias subtraction')
