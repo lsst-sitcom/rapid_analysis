@@ -58,6 +58,8 @@ class BestEffortIsr():
         self.imCharConfig.repair.cosmicray.nCrPixelMax = 200000
         self.imCharTask = CharacterizeImageTask(config=self.imCharConfig)
 
+        self.writePostIsrImages = False
+
     def reloadButler(self):
         self.butler = dafPersist.Butler(self.repodir)
 
@@ -159,4 +161,14 @@ class BestEffortIsr():
         if not skipCosmics:
             postIsr = self._repairCosmics(postIsr)
 
+        if self.writePostIsrImages:
+            self.butler.put(postIsr, "postISRCCD", dataId)
+
         return postIsr
+
+
+if __name__ == '__main__':
+    REPODIR = '/project/shared/auxTel/'
+    bestEffort = BestEffortIsr(REPODIR, defaultExtraIsrOptions={'doWrite': True})
+    dataId = {'dayObs': '2020-02-17', 'seqNum': 244}
+    exp = bestEffort.getExposure(dataId)
