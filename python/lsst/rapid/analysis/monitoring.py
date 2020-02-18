@@ -36,6 +36,7 @@ class Monitor():
         self.display = fireflyDisplay
         self.butler = dafPersist.Butler(repoDir)
         self.bestEffort = BestEffortIsr(repoDir)
+        self.writePostIsrImages = None
 
     def _getLatestExpId(self):
         return sorted(self.butler.queryMetadata('raw', 'expId'))[-1]
@@ -69,8 +70,12 @@ class Monitor():
             else:
                 exp = self.butler.get('raw', **dataId)
 
+            if self.writePostIsrImages:
+                self.butler.put(exp, "postISRCCD", dataId)
+
             print(f"Displaying {dataId}...")
             self.display.mtv(exp, title=str(dataId))
+            self.display.scale('asinh', 'zscale')
             lastDisplayed = expId
 
         return
