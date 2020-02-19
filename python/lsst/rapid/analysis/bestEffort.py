@@ -123,6 +123,8 @@ class BestEffortIsr():
         isrConfig.doLinearize = False
         isrConfig.doFringe = False
         isrConfig.doDefect = False
+        isrConfig.doSaturation = False
+        isrConfig.doSaturationInterpolation = False
 
         isrParts = ['bias', 'dark', 'flat', 'linearizer', 'defects']
         isrDict = {}
