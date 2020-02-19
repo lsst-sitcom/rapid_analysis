@@ -22,7 +22,9 @@
 import os
 import numpy as np
 import lsst.daf.persistence as dafPersist
+import lsst.afw.cameraGeom.utils as cgUtils
 from .bestEffort import BestEffortIsr
+import lsst.geom as geom
 from time import sleep
 
 # TODO: maybe add option to create display and return URL?
@@ -40,6 +42,8 @@ class Monitor():
         self.writePostIsrImages = None
         outpath = os.path.join(repoDir, 'rerun/quickLook')
         self.butler = dafPersist.Butler(inputs=repoDir, outputs=outpath)
+        self.overlayAmps = False  # do the overlay?
+        self.measureFromChipCenter = False
 
     def _getLatestExpId(self):
         return sorted(self.butler.queryMetadata('raw', 'expId'))[-1]
@@ -131,12 +135,20 @@ class Monitor():
             if self.writePostIsrImages:
                 self.butler.put(exp, "quickLookExp", dataId)
 
+            # TODO: add logic to deal with amp overlay and chip center
+            # being mutually exclusive
+            if self.measureFromChipCenter:  # after writing only!
+                exp.setXY0(geom.PointI(-2036, -2000))
+
             print(f"Displaying {dataId}...")
             imageInfoText = self._makeImageInfoText(dataId, exp, asList=True)
             # too long of a title breaks Java FITS i/o
             fireflyTitle = " ".join([s for s in imageInfoText])[:67]
-            self.display.mtv(exp, title=fireflyTitle)
             self.display.scale('asinh', 'zscale')
+            self.display.mtv(exp, title=fireflyTitle)
+            if self.overlayAmps:
+                cgUtils.overlayCcdBoxes(exp.getDetector(), display=self.display, isTrimmed=True)
+
             self._printImageInfo(imageInfoText)
             lastDisplayed = expId
 
