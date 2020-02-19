@@ -100,6 +100,9 @@ class Monitor():
         top = 3850  # just under title for size=3
         xnom = -600  # 0 is the left edge of the image
         vSpacing = 100  # about right for size=3, can make f(size) if needed
+
+        # TODO: add a with buffering and a .flush()
+        # Also maybe a sleep as it seems buggy
         for i, item in enumerate(elements):
             y = top - (i*vSpacing)
             x = xnom + (size * 18.5 * len(item)//2)
