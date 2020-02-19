@@ -130,8 +130,9 @@ class Monitor():
 
             print(f"Displaying {dataId}...")
             imageInfoText = self._makeImageInfoText(dataId, exp, asList=True)
-            longTitle = " ".join([s for s in imageInfoText])
-            self.display.mtv(exp, title=longTitle)
+            # too long of a title breaks Java FITS i/o
+            fireflyTitle = " ".join([s for s in imageInfoText])[:67]
+            self.display.mtv(exp, title=fireflyTitle)
             self.display.scale('asinh', 'zscale')
             self._printImageInfo(imageInfoText)
             lastDisplayed = expId
