@@ -60,6 +60,8 @@ class BestEffortIsr():
 
         self.writePostIsrImages = False
 
+        self._cache = {}
+
     def reloadButler(self):
         self.butler = dafPersist.Butler(self.repodir)
 
@@ -96,6 +98,9 @@ class BestEffortIsr():
             raise RuntimeError(f"Invalid expId or dataId type {expIdOrDataId}")
         return _dataId
 
+    def clearCache(self):
+        self._cache = {}
+
     def getExposure(self, expIdOrDataId, extraOptions={}, skipCosmics=False, **kwargs):
         """extraOptions is a dict of options applied to this image only"""
         dataId = self._parseExpIdOrDataId(expIdOrDataId, **kwargs)
@@ -129,9 +134,15 @@ class BestEffortIsr():
         isrParts = ['bias', 'dark', 'flat', 'linearizer', 'defects']
         isrDict = {}
         for component in isrParts:
+            if component in self._cache and component != 'flat':
+                print(f"Using {component} from cache...")
+                isrDict[component] = self._cache[component]
+                continue
             try:
+                # TODO: add caching for flats
                 item = self.butler.get(component, **dataId)
-                isrDict[component] = item
+                self._cache[component] = item
+                isrDict[component] = self._cache[component]
             except AttributeError as e:  # catches mapper problems
                 print(f'Caught {e} - update your mapper?')
             except (butlerExcept.NoResults, RuntimeError):
