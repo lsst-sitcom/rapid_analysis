@@ -83,6 +83,12 @@ class Monitor():
         else:
             elements.append(f"{imageType}")
 
+        expTime = exp.getInfo().getVisitInfo().getExposureTime()
+        filt = exp.getFilter().getName()
+
+        elements.append(f"expTime={expTime}")
+        elements.append(f"{filt}")
+
         elements.extend(self._calcImageStats(exp))
 
         if asList:
