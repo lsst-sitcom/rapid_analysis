@@ -162,13 +162,14 @@ class BestEffortIsr():
             postIsr = self._repairCosmics(postIsr)
 
         if self.writePostIsrImages:
-            self.butler.put(postIsr, "postISRCCD", dataId)
+            self.butler.put(postIsr, "quickLookExp", dataId)
 
         return postIsr
 
 
 if __name__ == '__main__':
     REPODIR = '/project/shared/auxTel/'
-    bestEffort = BestEffortIsr(REPODIR, defaultExtraIsrOptions={'doWrite': True})
+    bestEffort = BestEffortIsr(REPODIR)
+    bestEffort.writePostIsrImages = True
     dataId = {'dayObs': '2020-02-17', 'seqNum': 244}
     exp = bestEffort.getExposure(dataId)
