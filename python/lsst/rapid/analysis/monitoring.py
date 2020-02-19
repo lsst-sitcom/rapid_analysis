@@ -38,7 +38,7 @@ class Monitor():
         """"""
         self.repoDir = repoDir
         self.display = fireflyDisplay
-        self.bestEffort = BestEffortIsr(repoDir)
+        self.bestEffort = BestEffortIsr(repoDir, **kwargs)
         self.writePostIsrImages = None
         outpath = os.path.join(repoDir, 'rerun/quickLook')
         self.butler = dafPersist.Butler(inputs=repoDir, outputs=outpath)

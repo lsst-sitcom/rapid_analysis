@@ -84,8 +84,9 @@ class BestEffortIsr():
         for option, value in overrides.items():
             if hasattr(config, option):
                 setattr(config, option, value)
+                print(f"Set isr config override {option} to {value}")
             else:
-                print(f"Override option {option} not found in isrConfig")
+                print(f"WARNING: Override option {option} not found in isrConfig")
 
     @staticmethod
     def _parseExpIdOrDataId(expIdOrDataId, **kwargs):
@@ -113,6 +114,7 @@ class BestEffortIsr():
         # default options that are probably good for most engineering time
         isrConfig = IsrTask.ConfigClass()
         isrConfig.doWrite = False
+        isrConfig.doSaturation = False
         isrConfig.doSaturationInterpolation = False
         isrConfig.overscanNumLeadingColumnsToSkip = 20
 
@@ -128,8 +130,6 @@ class BestEffortIsr():
         isrConfig.doLinearize = False
         isrConfig.doFringe = False
         isrConfig.doDefect = False
-        isrConfig.doSaturation = False
-        isrConfig.doSaturationInterpolation = False
 
         isrParts = ['bias', 'dark', 'flat', 'linearizer', 'defects']
         isrDict = {}
