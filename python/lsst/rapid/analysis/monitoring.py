@@ -86,7 +86,7 @@ class Monitor():
         expTime = exp.getInfo().getVisitInfo().getExposureTime()
         filt = exp.getFilter().getName()
 
-        elements.append(f"expTime={expTime}")
+        elements.append(f"{expTime}s exp")
         elements.append(f"{filt}")
 
         elements.extend(self._calcImageStats(exp))
@@ -130,7 +130,8 @@ class Monitor():
 
             print(f"Displaying {dataId}...")
             imageInfoText = self._makeImageInfoText(dataId, exp, asList=True)
-            self.display.mtv(exp, title=str(dataId))
+            longTitle = " ".join([s for s in imageInfoText])
+            self.display.mtv(exp, title=longTitle)
             self.display.scale('asinh', 'zscale')
             self._printImageInfo(imageInfoText)
             lastDisplayed = expId
