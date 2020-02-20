@@ -19,6 +19,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+__all__ = ['makePolarPlot']
+
 import matplotlib.pyplot as plt
 
 
@@ -32,18 +34,15 @@ def _getAltAzZenithsFromSeqNum(butler, dayObs, seqMin, seqMax):
     return azimuths, elevations, zeniths
 
 
-def makePolarPlot(butler, dayObs, seqMin, seqMax):
+def makePolarPlot(butler, dayObs, seqMin, seqMax, returnData=False):
     az, el, zen = _getAltAzZenithsFromSeqNum(butler, dayObs, seqMin, seqMax)
-    fig = plt.figure(figsize=(10, 10))
+    _ = plt.figure(figsize=(10, 10))
     ax = plt.subplot(111, polar=True)
     ax.plot(az, zen, 'or')
-    title = "Polar coverage -"
-    if dayObs:
-        title += f'{dayObs}'
-    if seqMin and seqMax:
-        title += f'seqNums {seqMin}..{seqMax}'
+    title = f"Polar coverage - {dayObs} seqNums {seqMin}..{seqMax}"
     ax.set_title(title, va='bottom')
     ax.set_theta_zero_location("N")
     ax.set_theta_direction(-1)
     ax.set_rlim(0, 90)
-    return fig
+    if returnData:
+        return {'azimuths': az, 'elevations': el, 'zenithAngles': zen}
