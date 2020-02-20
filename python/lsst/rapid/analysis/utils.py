@@ -24,9 +24,9 @@ __all__ = ['makePolarPlot']
 import matplotlib.pyplot as plt
 
 
-def _getAltAzZenithsFromSeqNum(butler, dayObs, seqMin, seqMax):
+def _getAltAzZenithsFromSeqNum(butler, dayObs, seqNumList):
     azimuths, elevations, zeniths = [], [], []
-    for seqNum in range(seqMin, seqMax+1):
+    for seqNum in seqNumList:
         md = butler.get("raw_md", dayObs=dayObs, seqNum=seqNum)
         elevations.append(md['ELSTART'])
         zeniths.append(90-md['ELSTART'])
@@ -34,8 +34,17 @@ def _getAltAzZenithsFromSeqNum(butler, dayObs, seqMin, seqMax):
     return azimuths, elevations, zeniths
 
 
-def makePolarPlot(butler, dayObs, seqMin, seqMax, returnData=False):
-    az, el, zen = _getAltAzZenithsFromSeqNum(butler, dayObs, seqMin, seqMax)
+def makePolarPlot(butler, dayObs, seqMin, seqMax, seqNumList=None, returnData=False):
+    """Make a polar plot of the azimuth and zenith angles over sequence nums.
+
+    For the given dayObs, plots the range (seqMin..seqMax) or, for
+    dis-contiguous visits, a list of sequence numbers can be specified instead.
+    seqNumList is specified, seqMin and seqMax are ignored.
+    """
+    if not seqNumList:
+        seqNumList = [i for i in range(seqMin, seqMax+1)]
+
+    az, el, zen = _getAltAzZenithsFromSeqNum(butler, dayObs, seqNumList)
     _ = plt.figure(figsize=(10, 10))
     ax = plt.subplot(111, polar=True)
     ax.plot(az, zen, 'or')
