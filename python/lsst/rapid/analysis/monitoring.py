@@ -68,6 +68,13 @@ class Monitor():
         return elements
 
     def _makeImageInfoText(self, dataId, exp, asList=False):
+        # TODO: add the following to the display:
+        # az, el, zenith angle
+        # main source centroid
+        # PSF
+        # num saturated pixels
+        # main star max ADU (post isr)
+
         elements = []
 
         imageType = self.butler.queryMetadata('raw', 'imageType', dataId)[0]
