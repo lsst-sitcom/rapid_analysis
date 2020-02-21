@@ -147,7 +147,7 @@ class QuickFrameMeasurement():
 
         exp.image += median  # put background back in
         return pipeBase.Struct(brightestObjCentroid=brightestObjCentroid,
-                               brightestObjCentroidXxYy=(xx, yy),
+                               brightestObj_xXyY=(xx, yy),
                                brightestObjApFlux70=brightestObjApFlux70,
                                brightestObjApFlux25=brightestObjApFlux25,
                                medianPsf=medianPsf,)
