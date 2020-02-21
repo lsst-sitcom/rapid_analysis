@@ -72,7 +72,7 @@ class Monitor():
         # az, el, zenith angle
         # main source centroid
         # PSF
-        # num saturated pixels
+        # num saturated pixels (or maybe just an isSaturated bool)
         # main star max ADU (post isr)
 
         elements = []
