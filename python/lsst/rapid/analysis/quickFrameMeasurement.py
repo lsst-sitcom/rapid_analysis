@@ -23,12 +23,14 @@ import numpy as np
 from lsst.atmospec.processStar import ProcessStarTask
 import lsst.afw.table as afwTable
 import lsst.meas.base as measBase
+import lsst.daf.base as dafBase
+import lsst.pipe.base as pipeBase
 from lsst.meas.base import MeasurementError
 from lsst.pipe.tasks.characterizeImage import CharacterizeImageTask
 import lsst.afw.display as afwDisplay
 
 
-class QuickPsfMeasurement():
+class QuickFrameMeasurement():
 
     def __init__(self, display=None, **kwargs):
         self.display = None
@@ -51,10 +53,40 @@ class QuickPsfMeasurement():
         self.centroider = measBase.SdssCentroidAlgorithm(self.control, self.centroidName, self.schema)
         self.sdssShape = measBase.SdssShapeControl()
         self.shaper = measBase.SdssShapeAlgorithm(self.sdssShape, self.shapeName, self.schema)
+        self.apFluxControl = measBase.ApertureFluxControl()
+        md = dafBase.PropertySet()
+        self.apFluxer = measBase.CircularApertureFluxAlgorithm(self.apFluxControl, "aperFlux",
+                                                               self.schema, md)
+
+        # make sure to call this last!
         self.table = afwTable.SourceTable.make(self.schema)
 
     def _getDayObsSeqNumFromExpId(self, expId):
         return self.butler.queryMetadata('raw', ['dayObs', 'seqNum'], expId=expId)[0]
+
+    @staticmethod
+    def _calcMedianPsf(objData):
+        medianXx = np.nanmedian([objData[i]['xx'] for i in objData.keys()])
+        medianYy = np.nanmedian([objData[i]['yy'] for i in objData.keys()])
+        return medianXx, medianYy
+
+    @staticmethod
+    def _calcBrightestObjSrcNum(objData):
+        max70, max70srcNum = 0, 0
+        max25, max25srcNum = 0, 0
+        for srcNum in sorted(objData.keys()):  # srcNum not contiguous so don't use a list comp
+            ap70 = objData[srcNum]['apFlux70']
+            ap25 = objData[srcNum]['apFlux25']
+            if ap70 > max70:
+                max70 = ap70
+                max70srcNum = srcNum
+            if ap25 > max25:
+                max25 = ap25
+                max25srcNum = srcNum
+        if max70srcNum != max25srcNum:
+            print(f"WARNING! Max apFlux70 for different object than with max apFlux25")
+
+        return max70srcNum
 
     def run(self, exp, doDisplay=False):
         median = np.nanmedian(exp.image.array)
@@ -68,18 +100,32 @@ class QuickPsfMeasurement():
         fpSet = sources.getFootprints()
         print(f"Found {len(fpSet)} sources in exposure")
 
-        xxs, yys, centroids = [], [], []
+        objData = {}
         nMeasured = 0
-        for fp in fpSet:
+        for srcNum, fp in enumerate(fpSet):
             try:
                 src = self.table.makeRecord()
                 src.setFootprint(fp)
                 self.centroider.measure(src, exp)
                 self.shaper.measure(src, exp)
+                self.apFluxer.measure(src, exp)
 
-                xxs.append(np.sqrt(src['base_SdssShape_xx'])*2.355*.1)  # 2.355 for FWHM, .1 for platescale
-                yys.append(np.sqrt(src['base_SdssShape_yy'])*2.355*.1)
-                centroids.append((src['base_SdssCentroid_x'], src['base_SdssCentroid_y']))
+                xx = np.sqrt(src['base_SdssShape_xx'])*2.355*.1  # 2.355 for FWHM, .1 for platescale
+                yy = np.sqrt(src['base_SdssShape_yy'])*2.355*.1
+                xCentroid = src['base_SdssCentroid_x']
+                yCentroid = src['base_SdssCentroid_y']
+                # apFlux available: 70, 50, 35, 25, 17, 12 9, 6, 4.5, 3
+                apFlux70 = src['aperFlux_70_0_instFlux']
+                apFlux25 = src['aperFlux_25_0_instFlux']
+
+                objData[srcNum] = {}
+                objData[srcNum]['xx'] = xx
+                objData[srcNum]['yy'] = yy
+                objData[srcNum]['xCentroid'] = xCentroid
+                objData[srcNum]['yCentroid'] = yCentroid
+                objData[srcNum]['apFlux70'] = apFlux70
+                objData[srcNum]['apFlux25'] = apFlux25
+
                 nMeasured += 1
                 if doDisplay:  # TODO: Add buffering? Messier due to optional display
                     self.display.dot(src.getShape(), *src.getCentroid(), ctype=afwDisplay.BLUE)
@@ -88,13 +134,20 @@ class QuickPsfMeasurement():
 
         print(f"Measured {nMeasured} of {len(fpSet)} sources in exposure")
 
-        medianXx = np.nanmedian(xxs)
-        medianYy = np.nanmedian(yys)
+        medianPsf = self._calcMedianPsf(objData)
 
-        print(f"Median SDSS shape (x,y) = ({medianXx:.3f}, {medianYy:.3f}) FWHM arcsec")
+        brightestObjSrcNum = self._calcBrightestObjSrcNum(objData)
+        x = objData[brightestObjSrcNum]['xCentroid']
+        y = objData[brightestObjSrcNum]['yCentroid']
+        brightestObjCentroid = (x, y)
+        brightestObjApFlux70 = objData[brightestObjSrcNum]['apFlux70']
+        brightestObjApFlux25 = objData[brightestObjSrcNum]['apFlux25']
 
         exp.image += median  # put background back in
-        return medianXx, medianYy
+        return pipeBase.Struct(brightestObjCentroid=brightestObjCentroid,
+                               brightestObjApFlux70=brightestObjApFlux70,
+                               brightestObjApFlux25=brightestObjApFlux25,
+                               medianPsf=medianPsf,)
 
     def runSlow(self, exp):
 
@@ -125,5 +178,6 @@ if __name__ == '__main__':
     dataId = {'dayObs': '2020-02-18', 'seqNum': 82}
     exp = bestEffort.getExposure(dataId)
     qm = QuickPsfMeasurement()
-    qm.run(exp)
-    qm.runSlow(exp)
+    result = qm.run(exp)
+    import ipdb as pdb; pdb.set_trace()
+    # qm.runSlow(exp)
