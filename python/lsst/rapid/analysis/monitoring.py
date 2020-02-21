@@ -41,7 +41,7 @@ class Monitor():
         self.bestEffort = BestEffortIsr(repoDir, **kwargs)
         self.writePostIsrImages = None
         outpath = os.path.join(repoDir, 'rerun/quickLook')
-        self.butler = dafPersist.Butler(inputs=repoDir, outputs=outpath)
+        self.butler = dafPersist.Butler(outpath)
         self.overlayAmps = False  # do the overlay?
         self.measureFromChipCenter = False
 
