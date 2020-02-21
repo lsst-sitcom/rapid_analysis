@@ -140,11 +140,14 @@ class QuickFrameMeasurement():
         x = objData[brightestObjSrcNum]['xCentroid']
         y = objData[brightestObjSrcNum]['yCentroid']
         brightestObjCentroid = (x, y)
+        xx = objData[brightestObjSrcNum]['xx']
+        yy = objData[brightestObjSrcNum]['yy']
         brightestObjApFlux70 = objData[brightestObjSrcNum]['apFlux70']
         brightestObjApFlux25 = objData[brightestObjSrcNum]['apFlux25']
 
         exp.image += median  # put background back in
         return pipeBase.Struct(brightestObjCentroid=brightestObjCentroid,
+                               brightestObj_xXyY=(xx, yy),
                                brightestObjApFlux70=brightestObjApFlux70,
                                brightestObjApFlux25=brightestObjApFlux25,
                                medianPsf=medianPsf,)
@@ -177,7 +180,7 @@ if __name__ == '__main__':
     bestEffort = BestEffortIsr(REPODIR)
     dataId = {'dayObs': '2020-02-18', 'seqNum': 82}
     exp = bestEffort.getExposure(dataId)
-    qm = QuickPsfMeasurement()
+    qm = QuickFrameMeasurement()
     result = qm.run(exp)
     import ipdb as pdb; pdb.set_trace()
     # qm.runSlow(exp)
