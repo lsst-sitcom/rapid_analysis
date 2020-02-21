@@ -33,13 +33,13 @@ import lsst.afw.display as afwDisplay
 
 class QuickFrameMeasurement():
 
-    def __init__(self, display=None, **kwargs):
+    def __init__(self, initialPsfWidth=20, display=None, **kwargs):
         self.display = None
         if display:
             self.display = display
 
         psfInstallConfig = InstallGaussianPsfTask.ConfigClass()
-        psfInstallConfig.fwhm = 20
+        psfInstallConfig.fwhm = initialPsfWidth
         self.installPsfTask = InstallGaussianPsfTask(config=psfInstallConfig)
 
         procStarConfig = ProcessStarTask.ConfigClass()
