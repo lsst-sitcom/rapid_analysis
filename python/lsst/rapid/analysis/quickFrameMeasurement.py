@@ -27,6 +27,7 @@ import lsst.daf.base as dafBase
 import lsst.pipe.base as pipeBase
 from lsst.meas.base import MeasurementError
 from lsst.pipe.tasks.characterizeImage import CharacterizeImageTask
+from lsst.meas.algorithms.installGaussianPsf import InstallGaussianPsfTask
 import lsst.afw.display as afwDisplay
 
 
@@ -36,6 +37,10 @@ class QuickFrameMeasurement():
         self.display = None
         if display:
             self.display = display
+
+        psfInstallConfig = InstallGaussianPsfTask.ConfigClass()
+        psfInstallConfig.fwhm = 20
+        self.installPsfTask = InstallGaussianPsfTask(config=psfInstallConfig)
 
         procStarConfig = ProcessStarTask.ConfigClass()
         procStarConfig.mainSourceFindingMethod = 'BRIGHTEST'
@@ -99,6 +104,7 @@ class QuickFrameMeasurement():
     def run(self, exp, doDisplay=False):
         median = np.nanmedian(exp.image.array)
         exp.image -= median
+        self.installPsfTask.run(exp)
         sources = self.processStarTask.findObjects(exp)
         if doDisplay:
             if self.display is None:
