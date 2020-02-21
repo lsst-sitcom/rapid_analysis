@@ -88,6 +88,14 @@ class QuickFrameMeasurement():
 
         return max70srcNum
 
+    def _measureFp(self, fp, exp):
+        src = self.table.makeRecord()
+        src.setFootprint(fp)
+        self.centroider.measure(src, exp)
+        self.shaper.measure(src, exp)
+        self.apFluxer.measure(src, exp)
+        return src
+
     def run(self, exp, doDisplay=False):
         median = np.nanmedian(exp.image.array)
         exp.image -= median
@@ -104,11 +112,7 @@ class QuickFrameMeasurement():
         nMeasured = 0
         for srcNum, fp in enumerate(fpSet):
             try:
-                src = self.table.makeRecord()
-                src.setFootprint(fp)
-                self.centroider.measure(src, exp)
-                self.shaper.measure(src, exp)
-                self.apFluxer.measure(src, exp)
+                src = self._measureFp(fp, exp)
 
                 xx = np.sqrt(src['base_SdssShape_xx'])*2.355*.1  # 2.355 for FWHM, .1 for platescale
                 yy = np.sqrt(src['base_SdssShape_yy'])*2.355*.1
@@ -145,11 +149,14 @@ class QuickFrameMeasurement():
         brightestObjApFlux70 = objData[brightestObjSrcNum]['apFlux70']
         brightestObjApFlux25 = objData[brightestObjSrcNum]['apFlux25']
 
+        brightestObjSrcRecord = self._measureFp(fpSet[brightestObjSrcNum], exp)
+
         exp.image += median  # put background back in
         return pipeBase.Struct(brightestObjCentroid=brightestObjCentroid,
                                brightestObj_xXyY=(xx, yy),
                                brightestObjApFlux70=brightestObjApFlux70,
                                brightestObjApFlux25=brightestObjApFlux25,
+                               brightestObjSrcRecord=brightestObjSrcRecord,
                                medianPsf=medianPsf,)
 
     def runSlow(self, exp):
