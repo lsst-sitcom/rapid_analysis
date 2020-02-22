@@ -26,12 +26,12 @@ import lsst.daf.persistence as dafPersist
 __all__ = ['regenerateFromDays']
 
 
-def regenerateFromDays(repoDir, days, forceRegen=False):
+def regenerateFromDays(repoDir, days, clobber=False):
     """days in the form ["2020-02-18", "2020-02-19"]"""
     bestEffort = BestEffortIsr(repoDir)
     butler = dafPersist.Butler(repoDir)
     dataIds = getAllDataIdsAcrossManyDayObs(days, butler)
-    regenerateQuickLookExps(dataIds, butler, bestEffort, forceRegen=forceRegen)
+    regenerateQuickLookExps(dataIds, butler, bestEffort, clobber=clobber)
     fails = checkQuickLookExpsExist(dataIds, butler)
     if fails:
         print(f"Failed to (re)generate quickLookExps for {fails}")
@@ -53,10 +53,10 @@ def getAllDataIdsAcrossManyDayObs(days, butler):
     return dataIds
 
 
-def regenerateQuickLookExps(dataIds, butler, bestEffortIsr, forceRegen=False):
+def regenerateQuickLookExps(dataIds, butler, bestEffortIsr, clobber=False):
     nTotal = len(dataIds)
     for i, dataId in enumerate(dataIds):
-        if (not quickLookExpExists(dataId, butler)) or forceRegen is True:
+        if (not quickLookExpExists(dataId, butler)) or clobber is True:
             print(f"Processing {dataId} - {i} of {nTotal}")
             exp = bestEffortIsr.getExposure(dataId)
             butler.put(exp, 'quickLookExp', dataId)
