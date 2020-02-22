@@ -26,12 +26,12 @@ import lsst.daf.persistence as dafPersist
 __all__ = ['regenerateFromDays']
 
 
-def regenerateFromDays(repoDir, days):
+def regenerateFromDays(repoDir, days, forceRegen=False):
     """days in the form ["2020-02-18", "2020-02-19"]"""
     bestEffort = BestEffortIsr(repoDir)
     butler = dafPersist.Butler(repoDir)
     dataIds = getAllDataIdsAcrossManyDayObs(days, butler)
-    regenerateQuickLookExps(dataIds, bestEffort)
+    regenerateQuickLookExps(dataIds, butler, bestEffort, forceRegen=forceRegen)
     fails = checkQuickLookExpsExist(dataIds, butler)
     if fails:
         print(f"Failed to (re)generate quickLookExps for {fails}")
