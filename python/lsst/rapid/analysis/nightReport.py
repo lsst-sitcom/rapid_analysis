@@ -23,93 +23,117 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
 
+import astropy.units as u
+from astropy.time import Time
+from astropy.coordinates import SkyCoord, EarthLocation, AltAz
+
+import lsst.daf.persistence as dafPersist
+
 CALIB_VALUES = ['FlatField position', 'Park position']
+SOUTHPOLESTAR = 'HD 185975'
 
 
-def scrapeData(butler, dayObs):
-    data = {}
-    seqNums = sorted(butler.queryMetadata('raw', 'seqNum', dayObs=dayObs))
-    for seqNum in seqNums:
-        md = butler.get('raw_md', dayObs=dayObs, seqNum=seqNum)
-        data[seqNum] = md.toDict()
-    return data
+class NightReporter():
 
+    def __init__(self, repoDir, dayObs):
+        self.butler = dafPersist.Butler(repoDir)
+        self.dayObs = dayObs
+        self.data = {}
+        self.auxTelLocation = EarthLocation(lat=-30.244639*u.deg, lon=-70.749417*u.deg, height=2663*u.m)
+ #         self.rebuild()
 
-def getUniqueValuesForKey(data, key, ignoreCalibs=True):
-    values = []
-    for seqNum in data.keys():
-        v = data[seqNum][key]
-        if ignoreCalibs is True and v in CALIB_VALUES:
-            continue
-        values.append(v)
-    return list(set(values))
+    def rebuild(self, dayObs=None):
+        dayToUse = self.dayObs
+        if dayObs:
+            dayToUse = dayObs
+        self.data = self._scrapeData(dayToUse)
 
+    def _scrapeData(self, dayObs):
+        # TODO: add skipping files we already have
+        _data = {}
+        seqNums = sorted(self.butler.queryMetadata('raw', 'seqNum', dayObs=dayObs))
+        for seqNum in seqNums:
+            md = self.butler.get('raw_md', dayObs=dayObs, seqNum=seqNum)
+            _data[seqNum] = md.toDict()
+        return _data
 
-def makePolarPlot(azimuthsInDegrees, zenithAngles, marker="*-",
-                  title=None, makeFig=True, color=None, objName=None):
-    if makeFig:
+    def getUniqueValuesForKey(self, key, ignoreCalibs=True):
+        values = []
+        for seqNum in self.data.keys():
+            v = self.data[seqNum][key]
+            if ignoreCalibs is True and v in CALIB_VALUES:
+                continue
+            values.append(v)
+        return list(set(values))
+
+    def makePolarPlot(self, azimuthsInDegrees, zenithAngles, marker="*-",
+                      title=None, makeFig=True, color=None, objName=None):
+        if makeFig:
+            _ = plt.figure(figsize=(10, 10))
+        ax = plt.subplot(111, polar=True)
+        ax.plot([a*np.pi/180 for a in azimuthsInDegrees], zenithAngles, marker, c=color, label=objName)
+        if title:
+            ax.set_title(title, va='bottom')
+        ax.set_theta_zero_location("N")
+        ax.set_theta_direction(-1)
+        ax.set_rlim(0, 90)
+        return ax
+
+    def makePolarPlotForObjects(self, objects, colorMap=None, withLines=True):
+        if type(objects) == str:
+            objects = [objects]
         _ = plt.figure(figsize=(10, 10))
-    ax = plt.subplot(111, polar=True)
-    ax.plot([a*np.pi/180 for a in azimuthsInDegrees], zenithAngles, marker, c=color, label=objName)
-    if title:
-        ax.set_title(title, va='bottom')
-    ax.set_theta_zero_location("N")
-    ax.set_theta_direction(-1)
-    ax.set_rlim(0, 90)
-    return ax
 
+        marker = "*"
+        if withLines:
+            marker += '-'
 
-def makePolarPlotForObjects(data, objects, colorMap=None, withLines=True):
-    if type(objects) == str:
-        objects = [objects]
-    _ = plt.figure(figsize=(10, 10))
+        for i, obj in enumerate(objects):
+            azs = self.getAllValuesForKVPair(self.data, 'AZSTART', ("OBJECT", obj))
+            els = self.getAllValuesForKVPair(self.data, 'ELSTART', ("OBJECT", obj))
+            assert(len(azs) == len(els))
+            if len(azs) == 0:
+                print(f"WARNING: found no alt/az data for {obj}")
+            zens = [90 - el for el in els]
+            color = None
+            if colorMap:
+                color = colorMap[obj]
+            ax = self.makePolarPlot(azs, zens, marker=marker, title=None, makeFig=False,
+                                    color=color, objName=obj)
+        lgnd = ax.legend(bbox_to_anchor=(1.05, 1), prop={'size': 15}, loc='upper left')
+        for h in lgnd.legendHandles:
+            size = 14
+            if '-' in marker:
+                size += 5
+            h._legmarker.set_markersize(size)
 
-    marker = "*"
-    if withLines:
-        marker += '-'
+    def getAllValuesForKVPair(self, keyToGet, keyValPairAsTuple, uniqueOnly=False):
+        """e.g. all the RA values for OBJECT=='HD 123'"""
+        ret = []
+        for seqNum in self.data.keys():
+            if self.data[seqNum][keyValPairAsTuple[0]] == keyValPairAsTuple[1]:
+                ret.append(self.data[seqNum][keyToGet])
+        if uniqueOnly:
+            return list(set(ret))
+        return ret
 
-    for i, obj in enumerate(objects):
-        azs = getAllValuesForKVPair(data, 'AZSTART', ("OBJECT", obj))
-        els = getAllValuesForKVPair(data, 'ELSTART', ("OBJECT", obj))
-        assert(len(azs) == len(els))
-        if len(azs) == 0:
-            print(f"WARNING: found no alt/az data for {obj}")
-        zens = [90 - el for el in els]
-        color = None
-        if colorMap:
-            color = colorMap[obj]
-        ax = makePolarPlot(azs, zens, marker=marker, title=None, makeFig=False, color=color, objName=obj)
-    ax.set_title(f"Polar coverage for {[ob for ob in objects]}", va='bottom')
-    lgnd = ax.legend(bbox_to_anchor=(1.05, 1), prop={'size': 15}, loc='upper left')
-    for h in lgnd.legendHandles:
-        size = 14
-        if '-' in marker:
-            size += 5
-        h._legmarker.set_markersize(size)
+    @staticmethod
+    def makeStarColorMapDict(stars):
+        colorMap = {}
+        colors = cm.rainbow(np.linspace(0, 1, len(stars)))
+        for i, star in enumerate(stars):
+            colorMap[star] = colors[i]
+        return colorMap
 
+    def getObjectValues(self, key, objName):
+        return self.getAllValuesForKVPair(self.data, key, ('OBJECT', objName), uniqueOnly=False)
 
-def getAllValuesForKVPair(data, keyToGet, keyValPairAsTuple, uniqueOnly=False):
-    """e.g. all the RA values for OBJECT=='HD 123'"""
-    ret = []
-    for seqNum in data.keys():
-        if data[seqNum][keyValPairAsTuple[0]] == keyValPairAsTuple[1]:
-            ret.append(data[seqNum][keyToGet])
-    if uniqueOnly:
-        return list(set(ret))
-    return ret
+    def getAllHeaderKeys(self):
+        return list(list(self.data.items())[0][1].keys())
 
-
-def makeStarColorMapDict(stars):
-    colorMap = {}
-    colors = cm.rainbow(np.linspace(0, 1, len(stars)))
-    for i, star in enumerate(stars):
-        colorMap[star] = colors[i]
-    return colorMap
-
-
-def getObjectValues(data, key, objName):
-    return getAllValuesForKVPair(data, key, ('OBJECT', objName), uniqueOnly=False)
-
-
-def getAllHeaderKeys(data):
-    return list(list(data.items())[0][1].keys())
+    def airMassFromHeader(self, header):
+        time = Time(header['DATE-OBS'])
+        skyLocation = SkyCoord(header['RASTART'], header['DECSTART'], unit=u.deg)
+        altAz = AltAz(obstime=time, location=self.auxTelLocation)
+        observationAltAz = skyLocation.transform_to(altAz)
+        return observationAltAz.secz.value
