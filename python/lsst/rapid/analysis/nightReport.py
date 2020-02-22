@@ -40,6 +40,7 @@ class NightReporter():
         self.dayObs = dayObs
         self.data = {}
         self.auxTelLocation = EarthLocation(lat=-30.244639*u.deg, lon=-70.749417*u.deg, height=2663*u.m)
+        self.rebuild()
  #         self.rebuild()
 
     def rebuild(self, dayObs=None):
@@ -89,8 +90,8 @@ class NightReporter():
             marker += '-'
 
         for i, obj in enumerate(objects):
-            azs = self.getAllValuesForKVPair(self.data, 'AZSTART', ("OBJECT", obj))
-            els = self.getAllValuesForKVPair(self.data, 'ELSTART', ("OBJECT", obj))
+            azs = self.getAllValuesForKVPair('AZSTART', ("OBJECT", obj))
+            els = self.getAllValuesForKVPair('ELSTART', ("OBJECT", obj))
             assert(len(azs) == len(els))
             if len(azs) == 0:
                 print(f"WARNING: found no alt/az data for {obj}")
@@ -126,7 +127,7 @@ class NightReporter():
         return colorMap
 
     def getObjectValues(self, key, objName):
-        return self.getAllValuesForKVPair(self.data, key, ('OBJECT', objName), uniqueOnly=False)
+        return self.getAllValuesForKVPair(key, ('OBJECT', objName), uniqueOnly=False)
 
     def getAllHeaderKeys(self):
         return list(list(self.data.items())[0][1].keys())
@@ -137,3 +138,12 @@ class NightReporter():
         altAz = AltAz(obstime=time, location=self.auxTelLocation)
         observationAltAz = skyLocation.transform_to(altAz)
         return observationAltAz.secz.value
+
+
+if __name__ == '__main__':
+    repodir = '/project/shared/auxTel/'
+    nightReporter = NightReporter(repodir, "2020-02-20")
+    stars = nightReporter.getUniqueValuesForKey('OBJECT')
+    import ipdb as pdb; pdb.set_trace()
+    colorMap = nightReporter.makeStarColorMapDict(stars)
+    nightReporter.makePolarPlotForObjects(stars, colorMap, withLines=False)
