@@ -41,7 +41,6 @@ class NightReporter():
         self.data = {}
         self.auxTelLocation = EarthLocation(lat=-30.244639*u.deg, lon=-70.749417*u.deg, height=2663*u.m)
         self.rebuild()
- #         self.rebuild()
 
     def rebuild(self, dayObs=None):
         dayToUse = self.dayObs
@@ -53,9 +52,10 @@ class NightReporter():
         # TODO: add skipping files we already have
         _data = {}
         seqNums = sorted(self.butler.queryMetadata('raw', 'seqNum', dayObs=dayObs))
-        for seqNum in seqNums:
+        for seqNum in sorted(seqNums):
             md = self.butler.get('raw_md', dayObs=dayObs, seqNum=seqNum)
             _data[seqNum] = md.toDict()
+        print(f"Loaded data for seqNums {sorted(seqNums)[0]} to {sorted(seqNums)[-1]}")
         return _data
 
     def getUniqueValuesForKey(self, key, ignoreCalibs=True):
@@ -81,8 +81,7 @@ class NightReporter():
         return ax
 
     def makePolarPlotForObjects(self, objects, colorMap=None, withLines=True):
-        if type(objects) == str:
-            objects = [objects]
+        objects = self._safeListArg(objects)
         _ = plt.figure(figsize=(10, 10))
 
         marker = "*"
@@ -138,6 +137,44 @@ class NightReporter():
         altAz = AltAz(obstime=time, location=self.auxTelLocation)
         observationAltAz = skyLocation.transform_to(altAz)
         return observationAltAz.secz.value
+
+    def calcObjectAirmasses(self, objects):
+        airMasses = {}
+        for star in stars:
+            seqNums = self.getObjectValues('SEQNUM', star)
+            airMasses[star] = [(self.airMassFromHeader(self.data[seqNum]),
+                                self.data[seqNum]['MJD'])for seqNum in sorted(seqNums)]
+        return airMasses
+
+    def getObservedObjects(self):
+        return self.getUniqueValuesForKey('OBJECT')
+
+    def plotPerObjectAirMass(self, objects=None, versusMjd=True):
+        if not objects:
+            objects = self.getObservedObjects()
+
+        objects = self._safeListArg(objects)
+
+        # lazy to always recalculate but it's not *that* slow
+        # and optionally passing around can be messy
+        airMasses = self.calcObjectAirmasses(objects)
+
+        _ = plt.figure(figsize=(10, 6))
+        for star in objects:
+            ams, times = np.asarray(airMasses[star])[:, 0], np.asarray(airMasses[star])[:, 1]
+            if versusMjd:
+                plt.plot(times, ams, '*', color=colorMap[star], label=star, ms=10)
+            else:
+                plt.plot(ams, '*', color=colorMap[star], label=star, ms=10)
+        plt.ylabel('Airmass', fontsize=20)
+        _ = plt.legend(bbox_to_anchor=(1, 1.025), prop={'size': 15}, loc='upper left')
+
+    @staticmethod
+    def _safeListArg(arg):
+        if type(arg) == str:
+            return [arg]
+        assert(type(arg) == list), f"Expect list, got {arg}"
+        return arg
 
 
 if __name__ == '__main__':
