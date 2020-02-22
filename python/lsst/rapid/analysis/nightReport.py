@@ -157,6 +157,7 @@ class NightReporter():
 
         # lazy to always recalculate but it's not *that* slow
         # and optionally passing around can be messy
+        # TODO: keep some of this in class state
         airMasses = self.calcObjectAirmasses(objects)
 
         _ = plt.figure(figsize=(10, 6))
