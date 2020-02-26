@@ -24,6 +24,20 @@ __all__ = ['makePolarPlot']
 import matplotlib.pyplot as plt
 
 
+def humanNameForCelestialObject(objName):
+    """Returns a list of all human names for obj, or [] if none are found."""
+    from astroquery.simbad import Simbad
+    results = []
+    try:
+        simbadResult = Simbad.query_objectids(objName)
+        for row in simbadResult:
+            if row['ID'].startswith('NAME'):
+                results.append(row['ID'].replace('NAME ', ''))
+        return results
+    except Exception:
+        return []  # same behavior as for found but un-named objects
+
+
 def _getAltAzZenithsFromSeqNum(butler, dayObs, seqNumList):
     azimuths, elevations, zeniths = [], [], []
     for seqNum in seqNumList:
