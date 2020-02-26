@@ -35,12 +35,13 @@ SOUTHPOLESTAR = 'HD 185975'
 
 class NightReporter():
 
-    def __init__(self, repoDir, dayObs):
+    def __init__(self, repoDir, dayObs, deferLoadingData=False):
         self.butler = dafPersist.Butler(repoDir)
         self.dayObs = dayObs
         self.data = {}
         self.auxTelLocation = EarthLocation(lat=-30.244639*u.deg, lon=-70.749417*u.deg, height=2663*u.m)
-        self.rebuild()
+        if not deferLoadingData:
+            self.rebuild()
 
     def rebuild(self, dayObs=None):
         dayToUse = self.dayObs
@@ -67,8 +68,8 @@ class NightReporter():
             values.append(v)
         return list(set(values))
 
-    def makePolarPlot(self, azimuthsInDegrees, zenithAngles, marker="*-",
-                      title=None, makeFig=True, color=None, objName=None):
+    def _makePolarPlot(self, azimuthsInDegrees, zenithAngles, marker="*-",
+                       title=None, makeFig=True, color=None, objName=None):
         if makeFig:
             _ = plt.figure(figsize=(10, 10))
         ax = plt.subplot(111, polar=True)
@@ -98,8 +99,8 @@ class NightReporter():
             color = None
             if colorMap:
                 color = colorMap[obj]
-            ax = self.makePolarPlot(azs, zens, marker=marker, title=None, makeFig=False,
-                                    color=color, objName=obj)
+            ax = self._makePolarPlot(azs, zens, marker=marker, title=None, makeFig=False,
+                                     color=color, objName=obj)
         lgnd = ax.legend(bbox_to_anchor=(1.05, 1), prop={'size': 15}, loc='upper left')
         for h in lgnd.legendHandles:
             size = 14
@@ -131,18 +132,18 @@ class NightReporter():
     def getAllHeaderKeys(self):
         return list(list(self.data.items())[0][1].keys())
 
-    def airMassFromHeader(self, header):
+    def _airMassFromHeader(self, header):
         time = Time(header['DATE-OBS'])
         skyLocation = SkyCoord(header['RASTART'], header['DECSTART'], unit=u.deg)
         altAz = AltAz(obstime=time, location=self.auxTelLocation)
         observationAltAz = skyLocation.transform_to(altAz)
         return observationAltAz.secz.value
 
-    def calcObjectAirmasses(self, objects):
+    def _calcObjectAirmasses(self, objects):
         airMasses = {}
-        for star in stars:
+        for star in objects:
             seqNums = self.getObjectValues('SEQNUM', star)
-            airMasses[star] = [(self.airMassFromHeader(self.data[seqNum]),
+            airMasses[star] = [(self._airMassFromHeader(self.data[seqNum]),
                                 self.data[seqNum]['MJD'])for seqNum in sorted(seqNums)]
         return airMasses
 
@@ -158,7 +159,7 @@ class NightReporter():
         # lazy to always recalculate but it's not *that* slow
         # and optionally passing around can be messy
         # TODO: keep some of this in class state
-        airMasses = self.calcObjectAirmasses(objects)
+        airMasses = self._calcObjectAirmasses(objects)
 
         _ = plt.figure(figsize=(10, 6))
         for star in objects:
