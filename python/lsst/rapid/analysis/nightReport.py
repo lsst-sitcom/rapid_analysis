@@ -34,7 +34,7 @@ import lsst.daf.persistence as dafPersist
 from astro_metadata_translator import ObservationInfo
 
 CALIB_VALUES = ['FlatField position', 'Park position']
-N_STARS_PER_SYMBOL = 9
+N_STARS_PER_SYMBOL = 6
 MARKER_SEQUENCE = ['*', 'o', "D", 'P', 'v', "^", 's']
 SOUTHPOLESTAR = 'HD 185975'
 
@@ -49,14 +49,14 @@ class ColorAndMarker:
 class NightReporter():
 
     def __init__(self, repoDir, dayObs, deferLoadingData=False):
-        self._supressAstroMetadataTranslatorWarnings()
+        self._supressAstroMetadataTranslatorWarnings()  # call early
 
-        self.butler = dafPersist.Butler(repoDir)
+        self._butler = dafPersist.Butler(repoDir)
         self.dayObs = dayObs
         self.data = {}
         self.stars = None
         self.cMap = None
-        self.auxTelLocation = EarthLocation(lat=-30.244639*u.deg, lon=-70.749417*u.deg, height=2663*u.m)
+        self._auxTelLocation = EarthLocation(lat=-30.244639*u.deg, lon=-70.749417*u.deg, height=2663*u.m)
         if not deferLoadingData:
             self.rebuild()
 
@@ -85,12 +85,11 @@ class NightReporter():
 
         Don't call directly as the rebuild() function zeros out data for when
         it's a new dayObs."""
-        seqNums = sorted(self.butler.queryMetadata('raw', 'seqNum', dayObs=dayObs))
+        seqNums = sorted(self._butler.queryMetadata('raw', 'seqNum', dayObs=dayObs))
         for seqNum in sorted(seqNums):
             if seqNum in self.data.keys():
-                print(f"skipped {seqNum}")
                 continue
-            md = self.butler.get('raw_md', dayObs=dayObs, seqNum=seqNum)
+            md = self._butler.get('raw_md', dayObs=dayObs, seqNum=seqNum)
             self.data[seqNum] = md.toDict()
             self.data[seqNum]['ObservationInfo'] = ObservationInfo(md)
         print(f"Loaded data for seqNums {sorted(seqNums)[0]} to {sorted(seqNums)[-1]}")
@@ -174,7 +173,7 @@ class NightReporter():
     def _airMassFromHeader(self, header):
         time = Time(header['DATE-OBS'])
         skyLocation = SkyCoord(header['RASTART'], header['DECSTART'], unit=u.deg)
-        altAz = AltAz(obstime=time, location=self.auxTelLocation)
+        altAz = AltAz(obstime=time, location=self._auxTelLocation)
         observationAltAz = skyLocation.transform_to(altAz)
         return observationAltAz.secz.value
 
@@ -244,6 +243,30 @@ class NightReporter():
 
         for line in lines[-tailNumber:]:
             print(line)
+
+    def calcShutterOpenEfficiency(self, seqMin=0, seqMax=0):
+        if seqMin == 0:
+            seqMin = min(self.data.keys())
+        if seqMax == 0:
+            seqMax = max(self.data.keys())
+        assert seqMax > seqMin
+        assert (seqMin in self.data.keys())
+        assert (seqMax in self.data.keys())
+
+        timeStart = self.data[seqMin]['ObservationInfo'].datetime_begin
+        timeEnd = self.data[seqMax]['ObservationInfo'].datetime_end
+        expTimeSum = 0
+        for seqNum in range(seqMin, seqMax+1):
+            if seqNum not in self.data.keys():
+                print(f"Warning! No data found for seqNum {seqNum}")
+                continue
+            expTimeSum += self.data[seqNum]['EXPTIME']
+
+        timeOnSky = (timeEnd - timeStart).sec
+        efficiency = expTimeSum/timeOnSky
+        print(f"{100*efficiency:.2f}% shutter open in seqNum range {seqMin} and {seqMax}")
+        print(f"Total integration time = {expTimeSum:.1f}s")
+        return efficiency
 
     @staticmethod
     def _safeListArg(arg):
