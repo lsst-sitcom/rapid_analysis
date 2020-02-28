@@ -195,5 +195,4 @@ if __name__ == '__main__':
     exp = bestEffort.getExposure(dataId)
     qm = QuickFrameMeasurement()
     result = qm.run(exp)
-    import ipdb as pdb; pdb.set_trace()
-    # qm.runSlow(exp)
+    qm.runSlow(exp)

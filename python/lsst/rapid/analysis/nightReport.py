@@ -280,6 +280,5 @@ if __name__ == '__main__':
     repodir = '/project/shared/auxTel/'
     nightReporter = NightReporter(repodir, "2020-02-20")
     stars = nightReporter.getUniqueValuesForKey('OBJECT')
-    import ipdb as pdb; pdb.set_trace()
     colorMap = nightReporter.makeStarColorAndMarkerMap(stars)
     nightReporter.makePolarPlotForObjects(stars, colorMap, withLines=False)
