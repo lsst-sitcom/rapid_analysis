@@ -239,8 +239,9 @@ class NightReporter():
             dt = (d1-d0)
             d0 = d1
             timeOfDay = d1.isot.split('T')[1]
-            lines.append(f'{seqNum:4} {imageType:5} {timeOfDay} {filt:25} {dt.sec:6.1f}  {expTime:2.2f}')
+            lines.append(f'{seqNum:4} {imageType:9} {timeOfDay} {filt:25} {dt.sec:6.1f}  {expTime:2.2f}')
 
+        print(r"{seqNum:4} {imageType:9} {timeOfDay} {filt:25} {dt.sec:6.1f}  {expTime:2.2f}")
         for line in lines[-tailNumber:]:
             print(line)
 
