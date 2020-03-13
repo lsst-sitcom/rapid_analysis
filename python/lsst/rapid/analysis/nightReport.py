@@ -33,7 +33,7 @@ from astropy.coordinates import SkyCoord, EarthLocation, AltAz
 import lsst.daf.persistence as dafPersist
 from astro_metadata_translator import ObservationInfo
 
-CALIB_VALUES = ['FlatField position', 'Park position']
+CALIB_VALUES = ['FlatField position', 'Park position', 'azel_target']
 N_STARS_PER_SYMBOL = 6
 MARKER_SEQUENCE = ['*', 'o', "D", 'P', 'v', "^", 's']
 SOUTHPOLESTAR = 'HD 185975'
