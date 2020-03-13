@@ -19,9 +19,26 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ['makePolarPlot']
+__all__ = ['makePolarPlot', 'detectObjectsInExp']
 
 import matplotlib.pyplot as plt
+import numpy as np
+import lsst.afw.detection as afwDetect
+
+
+def detectObjectsInExp(exp, nSigma=10, nPixMin=10, grow=0):
+    """Return the footPrintSet for the objects in a postISR exposure."""
+    median = np.nanmedian(exp.image.array)
+    exp.image -= median
+
+    threshold = afwDetect.Threshold(nSigma, afwDetect.Threshold.STDEV)
+    footPrintSet = afwDetect.FootprintSet(exp.getMaskedImage(), threshold, "DETECTED", nPixMin)
+    if grow > 0:
+        isotropic = True
+        footPrintSet = afwDetect.FootprintSet(footPrintSet, grow, isotropic)
+
+    exp.image += median  # add back in to leave background unchanged
+    return footPrintSet
 
 
 def humanNameForCelestialObject(objName):
