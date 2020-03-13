@@ -20,7 +20,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import numpy as np
-from lsst.atmospec.processStar import ProcessStarTask
 import lsst.afw.table as afwTable
 import lsst.meas.base as measBase
 import lsst.daf.base as dafBase
@@ -29,6 +28,8 @@ from lsst.meas.base import MeasurementError
 from lsst.pipe.tasks.characterizeImage import CharacterizeImageTask
 from lsst.meas.algorithms.installGaussianPsf import InstallGaussianPsfTask
 import lsst.afw.display as afwDisplay
+
+from lsst.rapid.analysis.utils import detectObjectsInExp
 
 
 class QuickFrameMeasurement():
@@ -41,13 +42,6 @@ class QuickFrameMeasurement():
         psfInstallConfig = InstallGaussianPsfTask.ConfigClass()
         psfInstallConfig.fwhm = initialPsfWidth
         self.installPsfTask = InstallGaussianPsfTask(config=psfInstallConfig)
-
-        procStarConfig = ProcessStarTask.ConfigClass()
-        procStarConfig.mainSourceFindingMethod = 'BRIGHTEST'
-        procStarConfig.mainStarNsigma = 10
-        procStarConfig.mainStarGrowIsotropic = False
-        procStarConfig.mainStarGrow = 1
-        self.processStarTask = ProcessStarTask(config=procStarConfig)
 
         self.centroidName = "base_SdssCentroid"
         self.shapeName = "base_SdssShape"
@@ -101,11 +95,11 @@ class QuickFrameMeasurement():
         self.apFluxer.measure(src, exp)
         return src
 
-    def run(self, exp, doDisplay=False):
+    def run(self, exp, nSigma=20, doDisplay=False):
         median = np.nanmedian(exp.image.array)
         exp.image -= median
         self.installPsfTask.run(exp)
-        sources = self.processStarTask.findObjects(exp)
+        sources = detectObjectsInExp(exp, nSigma=nSigma)
         if doDisplay:
             if self.display is None:
                 raise RuntimeError("Display failed as no display provided during init()")
@@ -195,4 +189,5 @@ if __name__ == '__main__':
     exp = bestEffort.getExposure(dataId)
     qm = QuickFrameMeasurement()
     result = qm.run(exp)
-    qm.runSlow(exp)
+    print(result)
+    assert result.brightestObjCentroid == (1260.4501189371426, 1463.733450049176)
