@@ -39,7 +39,7 @@ class Monitor():
         self.repoDir = repoDir
         self.display = fireflyDisplay
         self.bestEffort = BestEffortIsr(repoDir, **kwargs)
-        self.writePostIsrImages = None
+        self.writeQuickLookImages = None
         outpath = os.path.join(repoDir, 'rerun/quickLook')
         self.butler = dafPersist.Butler(outpath)
         self.overlayAmps = False  # do the overlay?
@@ -139,7 +139,7 @@ class Monitor():
             else:
                 exp = self.butler.get('raw', **dataId)
 
-            if self.writePostIsrImages:
+            if self.writeQuickLookImages:
                 self.butler.put(exp, "quickLookExp", dataId)
 
             # TODO: add logic to deal with amp overlay and chip center
