@@ -234,14 +234,16 @@ class NightReporter():
             filt = self.data[seqNum]['ObservationInfo'].physical_filter
             imageType = self.data[seqNum]['ObservationInfo'].observation_type
             d1 = self.data[seqNum]['ObservationInfo'].datetime_begin
+            obj = self.data[seqNum]['OBJECT']
             if i == 0:
                 d0 = d1
             dt = (d1-d0)
             d0 = d1
             timeOfDay = d1.isot.split('T')[1]
-            lines.append(f'{seqNum:4} {imageType:9} {timeOfDay} {filt:25} {dt.sec:6.1f}  {expTime:2.2f}')
+            msg = f'{seqNum:4} {imageType:9} {obj:10} {timeOfDay} {filt:25} {dt.sec:6.1f}  {expTime:2.2f}'
+            lines.append(msg)
 
-        print(r"{seqNum:4} {imageType:9} {timeOfDay} {filt:25} {dt.sec:6.1f}  {expTime:2.2f}")
+        print(r"{seqNum:4} {imageType:9} {obj:10} {timeOfDay} {filt:25} {dt.sec:6.1f}  {expTime:2.2f}")
         for line in lines[-tailNumber:]:
             print(line)
 
