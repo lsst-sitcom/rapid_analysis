@@ -188,8 +188,7 @@ class NightReporter():
     def getObservedObjects(self):
         return self.getUniqueValuesForKey('OBJECT')
 
-    def plotPerObjectAirMass(self, objects=None, versusMjd=True):
-        # TODO: flip y axis for airmass 1 is at top
+    def plotPerObjectAirMass(self, objects=None, versusMjd=True, airmassOneAtTop=True):
         if not objects:
             objects = self.stars
 
@@ -210,6 +209,9 @@ class NightReporter():
             else:
                 plt.plot(ams, '*', color=color, marker=marker, label=star, ms=10)
         plt.ylabel('Airmass', fontsize=20)
+        if airmassOneAtTop:
+            ax = plt.gca()
+            ax.set_ylim(ax.get_ylim()[::-1])
         _ = plt.legend(bbox_to_anchor=(1, 1.025), prop={'size': 15}, loc='upper left')
 
     def printObsTable(self, imageType=None, tailNumber=0):
