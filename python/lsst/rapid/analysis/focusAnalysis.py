@@ -24,6 +24,8 @@ import lsst.geom as geom
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+from matplotlib.patches import Arrow, Rectangle, Circle
+
 from dataclasses import dataclass
 
 import numpy as np
@@ -79,6 +81,16 @@ class FocusAnalyzer():
         return bboxes
 
     @staticmethod
+    def _bboxToMplRectangle(bbox, colorNum):
+        xmin = bbox.getBeginX()
+        ymin = bbox.getBeginY()
+        xsize = bbox.getWidth()
+        ysize = bbox.getHeight()
+        rectangle = Rectangle((xmin, ymin), xsize, ysize, alpha=1, facecolor='none', lw=2,
+                              edgecolor=COLORS[colorNum])
+        return rectangle
+
+    @staticmethod
     def gauss(x, *pars):
         amp, mean, sigma = pars
         return amp*np.exp(-(x-mean)**2/(2.*sigma**2))
@@ -88,7 +100,7 @@ class FocusAnalyzer():
         bestFits = self.fitDataAndPlot(data, obj, filt, hideFit=hideFit)
         return bestFits
 
-    def getFocusData(self, dayObs, seqNums, display=False):
+    def getFocusData(self, dayObs, seqNums, doDisplay=False, display=None):
         fitData = {}
         filters = set()
         objects = set()
@@ -108,12 +120,22 @@ class FocusAnalyzer():
 
             quickMeasResult = self._quickMeasure.run(exp)
             centroid = quickMeasResult.brightestObjCentroid
-
-            if display:
-                plt.imshow(exp.image.array, norm=LogNorm())
-                plt.show()
-
             spectrumSliceBboxes = self._getBboxes(centroid)  # inside the loop due to centroid shifts
+
+            if doDisplay:
+                fig, axes = plt.subplots(1, 2, figsize=(18, 9))
+                axes[0].imshow(exp.image.array, norm=LogNorm(), origin='lower', cmap='gray_r')
+                plt.tight_layout()
+                arrowy, arrowx = centroid[0] - 400, centroid[1]  # numpy is backwards
+                dx, dy = 0, 300
+                arrow = Arrow(arrowy, arrowx, dy, dx, width=200., color='red')
+                circle = Circle(centroid, radius=25, facecolor='none', color='red')
+                axes[0].add_patch(arrow)
+                axes[0].add_patch(circle)
+                for i, bbox in enumerate(spectrumSliceBboxes):
+                    rect = self._bboxToMplRectangle(bbox, i)
+                    axes[0].add_patch(rect)
+
             for i, bbox in enumerate(spectrumSliceBboxes):
                 data1d = np.mean(exp[bbox].image.array, axis=0)  # flatten
                 data1d -= np.median(data1d)
@@ -129,12 +151,12 @@ class FocusAnalyzer():
 
                 coeffs, var_matrix = curve_fit(self.gauss, xs, data1d, p0=p0)
                 fitData[seqNum][i] = FitResult(amp=abs(coeffs[0]), mean=coeffs[1], sigma=abs(coeffs[2]))
-                if display:
-                    plt.plot(xs, data1d, f'{COLORS[i]}x')
+                if doDisplay:
+                    axes[1].plot(xs, data1d, f'{COLORS[i]}x')
                     highResX = np.linspace(0, len(data1d), 1000)
-                    plt.plot(highResX, self.gauss(highResX, *coeffs), 'k-')
+                    axes[1].plot(highResX, self.gauss(highResX, *coeffs), 'k-')
 
-            if display:  # show all color boxes together
+            if doDisplay:  # show all color boxes together
                 plt.title(f'Fits to seqNum {seqNum}')
                 plt.show()
 
@@ -150,7 +172,6 @@ class FocusAnalyzer():
         titleFontSize = 18
         legendFontSize = 12
         labelFontSize = 14
-        colors = ['b', 'g', 'r']
 
         arcminToPixel = 10
         sigmaToFwhm = 2.355
@@ -166,23 +187,23 @@ class FocusAnalyzer():
             amps = [data[seqNum][spectrumSlice].amp for seqNum in seqNums]
             widths = [data[seqNum][spectrumSlice].sigma / arcminToPixel * sigmaToFwhm for seqNum in seqNums]
 
-            pointsForLegend[spectrumSlice] = axes[0].scatter(focusPositions, amps, c=colors[spectrumSlice])
+            pointsForLegend[spectrumSlice] = axes[0].scatter(focusPositions, amps, c=COLORS[spectrumSlice])
             axes[0].set_xlabel('Focus position (mm)', fontsize=labelFontSize)
             axes[0].set_ylabel('Height (ADU)', fontsize=labelFontSize)
 
-            axes[1].scatter(focusPositions, widths, c=colors[spectrumSlice])
+            axes[1].scatter(focusPositions, widths, c=COLORS[spectrumSlice])
             axes[1].set_xlabel('Focus position (mm)', fontsize=labelFontSize)
             axes[1].set_ylabel('FWHM (arcsec)', fontsize=labelFontSize)
 
             quadFitPars = np.polyfit(focusPositions, widths, 2)
             if not hideFit:
-                axes[1].plot(fineXs, np.poly1d(quadFitPars)(fineXs), c=colors[spectrumSlice])
+                axes[1].plot(fineXs, np.poly1d(quadFitPars)(fineXs), c=COLORS[spectrumSlice])
                 fitMin = -quadFitPars[1] / (2.0*quadFitPars[0])
                 bestFits.append(fitMin)
-                axes[1].axvline(fitMin, color=colors[spectrumSlice])
+                axes[1].axvline(fitMin, color=COLORS[spectrumSlice])
                 msg = f"Best focus offset = {np.round(fitMin, 2)}"
                 axes[1].text(fitMin, np.mean(widths), msg, horizontalalignment='right',
-                             verticalalignment='center', rotation=90, color=colors[spectrumSlice],
+                             verticalalignment='center', rotation=90, color=COLORS[spectrumSlice],
                              fontsize=legendFontSize)
 
         titleText = f"Focus curve for {obj} w/ {filt}"
