@@ -119,6 +119,7 @@ class QuickFrameMeasurement():
 
     @staticmethod
     def _getDataFromFootprintOnly(fp, exp):
+        # TODO: the ixx iyy MUST go! (replace with just a roundness measure?)
         xx = fp.getShape().getIxx()
         yy = fp.getShape().getIyy()
         xCentroid, yCentroid = fp.getCentroid()

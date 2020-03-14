@@ -189,6 +189,7 @@ class NightReporter():
         return self.getUniqueValuesForKey('OBJECT')
 
     def plotPerObjectAirMass(self, objects=None, versusMjd=True):
+        # TODO: flip y axis for airmass 1 is at top
         if not objects:
             objects = self.stars
 
