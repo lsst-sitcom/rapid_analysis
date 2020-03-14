@@ -31,6 +31,8 @@ import lsst.afw.display as afwDisplay
 
 from lsst.rapid.analysis.utils import detectObjectsInExp
 
+MAX_NON_ROUNDNESS = 3.5  # spectra tend to be >25 and stars are often around 1.3
+
 
 class QuickFrameMeasurement():
 
@@ -74,6 +76,11 @@ class QuickFrameMeasurement():
         max70, max70srcNum = 0, 0
         max25, max25srcNum = 0, 0
         for srcNum in sorted(objData.keys()):  # srcNum not contiguous so don't use a list comp
+            nonRoundness = objData[srcNum]['xx']/objData[srcNum]['yy']
+            nonRoundness = max(nonRoundness, 1/nonRoundness)
+            if nonRoundness > MAX_NON_ROUNDNESS:
+                continue  # skip very unround things
+
             ap70 = objData[srcNum]['apFlux70']
             ap25 = objData[srcNum]['apFlux25']
             if ap70 > max70:
@@ -84,7 +91,6 @@ class QuickFrameMeasurement():
                 max25srcNum = srcNum
         if max70srcNum != max25srcNum:
             print(f"WARNING! Max apFlux70 for different object than with max apFlux25")
-
         return max70srcNum
 
     def _measureFp(self, fp, exp):
@@ -94,6 +100,48 @@ class QuickFrameMeasurement():
         self.shaper.measure(src, exp)
         self.apFluxer.measure(src, exp)
         return src
+
+    @staticmethod
+    def _getDataFromSrcRecord(src):
+        xx = np.sqrt(src['base_SdssShape_xx'])*2.355*.1  # 2.355 for FWHM, .1 for platescale
+        yy = np.sqrt(src['base_SdssShape_yy'])*2.355*.1
+        xCentroid = src['base_SdssCentroid_x']
+        yCentroid = src['base_SdssCentroid_y']
+        # apFlux available: 70, 50, 35, 25, 17, 12 9, 6, 4.5, 3
+        apFlux70 = src['aperFlux_70_0_instFlux']
+        apFlux25 = src['aperFlux_25_0_instFlux']
+        return pipeBase.Struct(xx=xx,
+                               yy=yy,
+                               xCentroid=xCentroid,
+                               yCentroid=yCentroid,
+                               apFlux70=apFlux70,
+                               apFlux25=apFlux25)
+
+    @staticmethod
+    def _getDataFromFootprintOnly(fp, exp):
+        xx = fp.getShape().getIxx()
+        yy = fp.getShape().getIyy()
+        xCentroid, yCentroid = fp.getCentroid()
+        # pretty gross, but we want them both to exist
+        apFlux70 = np.sum(exp[fp.getBBox()].image.array)
+        apFlux25 = np.sum(exp[fp.getBBox()].image.array)
+        return pipeBase.Struct(xx=xx,
+                               yy=yy,
+                               xCentroid=xCentroid,
+                               yCentroid=yCentroid,
+                               apFlux70=apFlux70,
+                               apFlux25=apFlux25)
+
+    @staticmethod
+    def _measurementResultToDict(measurementResult):
+        objData = {}
+        objData['xx'] = measurementResult.xx
+        objData['yy'] = measurementResult.yy
+        objData['xCentroid'] = measurementResult.xCentroid
+        objData['yCentroid'] = measurementResult.yCentroid
+        objData['apFlux70'] = measurementResult.apFlux70
+        objData['apFlux25'] = measurementResult.apFlux25
+        return objData
 
     def run(self, exp, nSigma=20, doDisplay=False):
         median = np.nanmedian(exp.image.array)
@@ -113,27 +161,19 @@ class QuickFrameMeasurement():
         for srcNum, fp in enumerate(fpSet):
             try:
                 src = self._measureFp(fp, exp)
-
-                xx = np.sqrt(src['base_SdssShape_xx'])*2.355*.1  # 2.355 for FWHM, .1 for platescale
-                yy = np.sqrt(src['base_SdssShape_yy'])*2.355*.1
-                xCentroid = src['base_SdssCentroid_x']
-                yCentroid = src['base_SdssCentroid_y']
-                # apFlux available: 70, 50, 35, 25, 17, 12 9, 6, 4.5, 3
-                apFlux70 = src['aperFlux_70_0_instFlux']
-                apFlux25 = src['aperFlux_25_0_instFlux']
-
-                objData[srcNum] = {}
-                objData[srcNum]['xx'] = xx
-                objData[srcNum]['yy'] = yy
-                objData[srcNum]['xCentroid'] = xCentroid
-                objData[srcNum]['yCentroid'] = yCentroid
-                objData[srcNum]['apFlux70'] = apFlux70
-                objData[srcNum]['apFlux25'] = apFlux25
-
+                result = self._getDataFromSrcRecord(src)
+                objData[srcNum] = self._measurementResultToDict(result)
                 nMeasured += 1
                 if doDisplay:  # TODO: Add buffering? Messier due to optional display
                     self.display.dot(src.getShape(), *src.getCentroid(), ctype=afwDisplay.BLUE)
             except MeasurementError:
+                try:
+                    # gets shape and centroid from footprint
+                    result = self._getDataFromFootprintOnly(fp, exp)
+                    objData[srcNum] = self._measurementResultToDict(result)
+                    nMeasured += 1
+                except MeasurementError as e:
+                    print(f"Skipped measuring source {srcNum}: {e}")
                 pass
 
         print(f"Measured {nMeasured} of {len(fpSet)} sources in exposure")
@@ -149,14 +189,11 @@ class QuickFrameMeasurement():
         brightestObjApFlux70 = objData[brightestObjSrcNum]['apFlux70']
         brightestObjApFlux25 = objData[brightestObjSrcNum]['apFlux25']
 
-        brightestObjSrcRecord = self._measureFp(fpSet[brightestObjSrcNum], exp)
-
         exp.image += median  # put background back in
         return pipeBase.Struct(brightestObjCentroid=brightestObjCentroid,
                                brightestObj_xXyY=(xx, yy),
                                brightestObjApFlux70=brightestObjApFlux70,
                                brightestObjApFlux25=brightestObjApFlux25,
-                               brightestObjSrcRecord=brightestObjSrcRecord,
                                medianPsf=medianPsf,)
 
     def runSlow(self, exp):
@@ -185,9 +222,20 @@ if __name__ == '__main__':
     from lsst.rapid.analysis.bestEffort import BestEffortIsr
     REPODIR = '/project/shared/auxTel/'
     bestEffort = BestEffortIsr(REPODIR)
-    dataId = {'dayObs': '2020-02-18', 'seqNum': 82}
+    dataId = {'dayObs': '2020-02-18', 'seqNum': 82}  # undispersed
     exp = bestEffort.getExposure(dataId)
     qm = QuickFrameMeasurement()
     result = qm.run(exp)
     print(result)
-    assert result.brightestObjCentroid == (1260.4501189371426, 1463.733450049176)
+    expectedCentroid = (1534.98, 1497.54)  # for sigma=20
+    assert abs(result.brightestObjCentroid[0] - expectedCentroid[0]) < 2
+    assert abs(result.brightestObjCentroid[1] - expectedCentroid[1]) < 2
+
+    dataId = {'dayObs': '2020-03-12', 'seqNum': 319}  # dispersed
+    exp = bestEffort.getExposure(dataId)
+    qm = QuickFrameMeasurement()
+    result = qm.run(exp)
+    print(result)
+    expectedCentroid = (1788.08, 1670.57)  # for sigma=20
+    assert abs(result.brightestObjCentroid[0] - expectedCentroid[0]) < 2
+    assert abs(result.brightestObjCentroid[1] - expectedCentroid[1]) < 2
