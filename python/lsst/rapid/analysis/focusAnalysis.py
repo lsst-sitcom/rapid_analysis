@@ -19,7 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
 import lsst.daf.persistence as dafPersist
 import lsst.geom as geom
 
@@ -56,10 +55,12 @@ class FocusAnalyzer():
         self.spectrumHalfWidth = 100
         self.spectrumBoxLength = 20
 
-    def _checkImageIsDispersed(self, dataId):
-        filterFull = self._butler.queryMetadata('raw', 'filter', dataId)[0]
-        filt, grating = filterFull.split('~')
-        if not grating or grating.startswith('EMPTY'):
+    @staticmethod
+    def _checkImageIsDispersed(filterFullName):
+        if "~" not in filterFullName:
+            raise RuntimeError("Error parsing filter name {filterFullName}")
+        filt, grating = filterFullName.split('~')
+        if grating.startswith('EMPTY'):
             return False
         return True
 
@@ -82,14 +83,29 @@ class FocusAnalyzer():
         amp, mean, sigma = pars
         return amp*np.exp(-(x-mean)**2/(2.*sigma**2))
 
-    def findBestFocii(self, dayObs, seqNums, display=False):
-        """Find the best focus in wavelength bands for the specified list of
-        seqNums"""
+    def run(self, dayObs, seqNums, display=False, hideFit=False):
+        data, obj, filt = self.getFocusData(dayObs, seqNums, display=display)
+        bestFits = self.fitDataAndPlot(data, obj, filt, hideFit=hideFit)
+        return bestFits
+
+    def getFocusData(self, dayObs, seqNums, display=False):
         fitData = {}
+        filters = set()
+        objects = set()
 
         for seqNum in seqNums:
             fitData[seqNum] = {}
             exp = self._bestEffort.getExposure({'dayObs': dayObs, 'seqNum': seqNum})
+
+            # sanity checking
+            filt = exp.getFilter().getName()
+            obj = self._butler.queryMetadata('raw', 'object', dayObs=dayObs, seqNum=seqNum)[0]
+            objects.add(obj)
+            filters.add(filt)
+            assert self._checkImageIsDispersed(filt), f"Image is not dispersed! (filter = {filt})"
+            assert len(filters) == 1, "You accidentally mixed filters!"
+            assert len(objects) == 1, "You accidentally mixed objects!"
+
             quickMeasResult = self._quickMeasure.run(exp)
             centroid = quickMeasResult.brightestObjCentroid
 
@@ -97,35 +113,96 @@ class FocusAnalyzer():
                 plt.imshow(exp.image.array, norm=LogNorm())
                 plt.show()
 
-            bboxes = self._getBboxes(centroid)
-            for i, bbox in enumerate(bboxes):
-                data1d = np.mean(exp[bbox].image.array, axis=0)
+            spectrumSliceBboxes = self._getBboxes(centroid)  # inside the loop due to centroid shifts
+            for i, bbox in enumerate(spectrumSliceBboxes):
+                data1d = np.mean(exp[bbox].image.array, axis=0)  # flatten
                 data1d -= np.median(data1d)
                 xs = np.arange(len(data1d))
 
+                # get rough estimates for fit
+                # can't use sigma from quickMeasResult due to SDSS shape
+                # failing on saturated starts, and fp.getShape() is weird
                 amp = np.max(data1d)
                 mean = np.argmax(data1d)
-                sigma = np.mean(quickMeasResult.brightestObj_xXyY) * 2.355 * 1.8
+                sigma = 20
                 p0 = amp, mean, sigma
+
                 coeffs, var_matrix = curve_fit(self.gauss, xs, data1d, p0=p0)
+                fitData[seqNum][i] = FitResult(amp=abs(coeffs[0]), mean=coeffs[1], sigma=abs(coeffs[2]))
                 if display:
                     plt.plot(xs, data1d, f'{COLORS[i]}x')
                     highResX = np.linspace(0, len(data1d), 1000)
                     plt.plot(highResX, self.gauss(highResX, *coeffs), 'k-')
 
-                import ipdb as pdb; pdb.set_trace()
-
-                fitData[seqNum][i] = FitResult(amp=coeffs[0], mean=coeffs[1], sigma=coeffs[2])
+            if display:  # show all color boxes together
+                plt.title(f'Fits to seqNum {seqNum}')
+                plt.show()
 
             focuserPosition = self._getFocusFromHeader(exp)
+            fitData[seqNum]['focus'] = focuserPosition
 
-        return
+        return fitData, filters.pop(), objects.pop()
 
+    @staticmethod
+    def fitDataAndPlot(data, obj, filt, hideFit=False):
+        bestFits = []
+
+        titleFontSize = 18
+        legendFontSize = 12
+        labelFontSize = 14
+        colors = ['b', 'g', 'r']
+
+        arcminToPixel = 10
+        sigmaToFwhm = 2.355
+
+        f, axes = plt.subplots(2, 1, figsize=[15, 8])
+        focusPositions = [data[k]['focus'] for k in data.keys()]
+        fineXs = np.linspace(np.min(focusPositions), np.max(focusPositions), 101)
+        seqNums = sorted(data.keys())
+
+        nSpectrumSlices = len(data[list(data.keys())[0]])-1
+        pointsForLegend = [0.0 for offset in range(nSpectrumSlices)]
+        for spectrumSlice in range(nSpectrumSlices):  # the blue/green/red slices through the spectrum
+            amps = [data[seqNum][spectrumSlice].amp for seqNum in seqNums]
+            widths = [data[seqNum][spectrumSlice].sigma / arcminToPixel * sigmaToFwhm for seqNum in seqNums]
+
+            pointsForLegend[spectrumSlice] = axes[0].scatter(focusPositions, amps, c=colors[spectrumSlice])
+            axes[0].set_xlabel('Focus position (mm)', fontsize=labelFontSize)
+            axes[0].set_ylabel('Height (ADU)', fontsize=labelFontSize)
+
+            axes[1].scatter(focusPositions, widths, c=colors[spectrumSlice])
+            axes[1].set_xlabel('Focus position (mm)', fontsize=labelFontSize)
+            axes[1].set_ylabel('FWHM (arcsec)', fontsize=labelFontSize)
+
+            quadFitPars = np.polyfit(focusPositions, widths, 2)
+            if not hideFit:
+                axes[1].plot(fineXs, np.poly1d(quadFitPars)(fineXs), c=colors[spectrumSlice])
+                fitMin = -quadFitPars[1] / (2.0*quadFitPars[0])
+                bestFits.append(fitMin)
+                axes[1].axvline(fitMin, color=colors[spectrumSlice])
+                msg = f"Best focus offset = {np.round(fitMin, 2)}"
+                axes[1].text(fitMin, np.mean(widths), msg, horizontalalignment='right',
+                             verticalalignment='center', rotation=90, color=colors[spectrumSlice],
+                             fontsize=legendFontSize)
+
+        titleText = f"Focus curve for {obj} w/ {filt}"
+        plt.suptitle(titleText, fontsize=titleFontSize)
+        legendText = ['m=+1 blue end', 'm=+1 middle', 'm=+1 red end']
+        axes[0].legend(pointsForLegend, legendText, fontsize=legendFontSize)
+        axes[1].legend(pointsForLegend, legendText, fontsize=legendFontSize)
+        f.tight_layout(rect=[0, 0.03, 1, 0.95])
+        plt.show()
+
+        for i, bestFit in enumerate(bestFits):
+            print(f"Best fit for spectrum slice {i} = {bestFit:.4f}mm")
+        return bestFits
 
 
 if __name__ == '__main__':
     repoDir = '/project/shared/auxTel/'
     analyzer = FocusAnalyzer(repoDir)
-    analyzer.findBestFocii('2020-02-20', [485])
-    dataId = {'dayObs': '2020-02-20', 'seqNum':485}
-    import ipdb as pdb; pdb.set_trace()
+    # dataId = {'dayObs': '2020-02-20', 'seqNum': 485}  # direct image
+    dataId = {'dayObs': '2020-03-12'}
+    seqNums = [121, 122]
+    data = analyzer.getFocusData(dataId['dayObs'], seqNums)
+    analyzer.fitDataAndPlot(data)
