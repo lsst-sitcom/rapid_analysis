@@ -166,7 +166,7 @@ class FocusAnalyzer():
         return fitData, filters.pop(), objects.pop()
 
     @staticmethod
-    def fitDataAndPlot(data, obj, filt, hideFit=False):
+    def fitDataAndPlot(data, obj, filt, hideFit=False, hexapodZeroPoint=0):
         bestFits = []
 
         titleFontSize = 18
@@ -177,7 +177,7 @@ class FocusAnalyzer():
         sigmaToFwhm = 2.355
 
         f, axes = plt.subplots(2, 1, figsize=[15, 8])
-        focusPositions = [data[k]['focus'] for k in data.keys()]
+        focusPositions = [data[k]['focus']-hexapodZeroPoint for k in data.keys()]
         fineXs = np.linspace(np.min(focusPositions), np.max(focusPositions), 101)
         seqNums = sorted(data.keys())
 
