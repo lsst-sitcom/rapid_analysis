@@ -177,7 +177,7 @@ class FocusAnalyzer():
         sigmaToFwhm = 2.355
 
         f, axes = plt.subplots(2, 1, figsize=[15, 8])
-        focusPositions = [data[k]['focus']-hexapodZeroPoint for k in data.keys()]
+        focusPositions = [data[k]['focus']-hexapodZeroPoint for k in sorted(data.keys())]
         fineXs = np.linspace(np.min(focusPositions), np.max(focusPositions), 101)
         seqNums = sorted(data.keys())
 
