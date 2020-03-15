@@ -25,6 +25,7 @@ import lsst.geom as geom
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from matplotlib.patches import Arrow, Rectangle, Circle
+import matplotlib.cm as cm
 
 from dataclasses import dataclass
 
@@ -34,8 +35,6 @@ from scipy.optimize import curve_fit
 # TODO: change these back to local .imports
 from lsst.rapid.analysis.bestEffort import BestEffortIsr
 from lsst.rapid.analysis.quickFrameMeasurement import QuickFrameMeasurement
-
-COLORS = ['b', 'g', 'r']
 
 
 @dataclass
@@ -53,9 +52,20 @@ class FocusAnalyzer():
         self._bestEffort = BestEffortIsr(repoDir, **kwargs)
         self._quickMeasure = QuickFrameMeasurement()
 
-        self.spectrumBoxOffsets = [882, 1170, 1467]
         self.spectrumHalfWidth = 100
         self.spectrumBoxLength = 20
+        self._spectrumBoxOffsets = [882, 1170, 1467]
+        self._setColors(len(self._spectrumBoxOffsets))
+
+    def setSpectrumBoxOffsets(self, offsets):
+        self._spectrumBoxOffsets = offsets
+        self._setColors(len(offsets))
+
+    def getSpectrumBoxOffsets(self):
+        return self._spectrumBoxOffsets
+
+    def _setColors(self, nPoints):
+        self.COLORS = cm.rainbow(np.linspace(0, 1, nPoints))
 
     @staticmethod
     def _checkImageIsDispersed(filterFullName):
@@ -74,20 +84,19 @@ class FocusAnalyzer():
         x, y = centroid
         bboxes = []
 
-        for offset in self.spectrumBoxOffsets:
+        for offset in self._spectrumBoxOffsets:
             bbox = geom.Box2I(geom.Point2I(x-self.spectrumHalfWidth, y+offset),
                               geom.Point2I(x+self.spectrumHalfWidth, y+offset+self.spectrumBoxLength))
             bboxes.append(bbox)
         return bboxes
 
-    @staticmethod
-    def _bboxToMplRectangle(bbox, colorNum):
+    def _bboxToMplRectangle(self, bbox, colorNum):
         xmin = bbox.getBeginX()
         ymin = bbox.getBeginY()
         xsize = bbox.getWidth()
         ysize = bbox.getHeight()
         rectangle = Rectangle((xmin, ymin), xsize, ysize, alpha=1, facecolor='none', lw=2,
-                              edgecolor=COLORS[colorNum])
+                              edgecolor=self.COLORS[colorNum])
         return rectangle
 
     @staticmethod
@@ -152,7 +161,7 @@ class FocusAnalyzer():
                 coeffs, var_matrix = curve_fit(self.gauss, xs, data1d, p0=p0)
                 fitData[seqNum][i] = FitResult(amp=abs(coeffs[0]), mean=coeffs[1], sigma=abs(coeffs[2]))
                 if doDisplay:
-                    axes[1].plot(xs, data1d, f'{COLORS[i]}x')
+                    axes[1].plot(xs, data1d, 'x', c=self.COLORS[i])
                     highResX = np.linspace(0, len(data1d), 1000)
                     axes[1].plot(highResX, self.gauss(highResX, *coeffs), 'k-')
 
@@ -165,8 +174,7 @@ class FocusAnalyzer():
 
         return fitData, filters.pop(), objects.pop()
 
-    @staticmethod
-    def fitDataAndPlot(data, obj, filt, hideFit=False, hexapodZeroPoint=0):
+    def fitDataAndPlot(self, data, obj, filt, hideFit=False, hexapodZeroPoint=0):
         bestFits = []
 
         titleFontSize = 18
@@ -184,31 +192,34 @@ class FocusAnalyzer():
         nSpectrumSlices = len(data[list(data.keys())[0]])-1
         pointsForLegend = [0.0 for offset in range(nSpectrumSlices)]
         for spectrumSlice in range(nSpectrumSlices):  # the blue/green/red slices through the spectrum
+            # for scatter plots, the color needs to be a single-row 2d array
+            thisColor = np.array([self.COLORS[spectrumSlice]])
+
             amps = [data[seqNum][spectrumSlice].amp for seqNum in seqNums]
             widths = [data[seqNum][spectrumSlice].sigma / arcminToPixel * sigmaToFwhm for seqNum in seqNums]
 
-            pointsForLegend[spectrumSlice] = axes[0].scatter(focusPositions, amps, c=COLORS[spectrumSlice])
+            pointsForLegend[spectrumSlice] = axes[0].scatter(focusPositions, amps, c=thisColor)
             axes[0].set_xlabel('Focus position (mm)', fontsize=labelFontSize)
             axes[0].set_ylabel('Height (ADU)', fontsize=labelFontSize)
 
-            axes[1].scatter(focusPositions, widths, c=COLORS[spectrumSlice])
+            axes[1].scatter(focusPositions, widths, c=thisColor)
             axes[1].set_xlabel('Focus position (mm)', fontsize=labelFontSize)
             axes[1].set_ylabel('FWHM (arcsec)', fontsize=labelFontSize)
 
             quadFitPars = np.polyfit(focusPositions, widths, 2)
             if not hideFit:
-                axes[1].plot(fineXs, np.poly1d(quadFitPars)(fineXs), c=COLORS[spectrumSlice])
+                axes[1].plot(fineXs, np.poly1d(quadFitPars)(fineXs), c=self.COLORS[spectrumSlice])
                 fitMin = -quadFitPars[1] / (2.0*quadFitPars[0])
                 bestFits.append(fitMin)
-                axes[1].axvline(fitMin, color=COLORS[spectrumSlice])
+                axes[1].axvline(fitMin, color=self.COLORS[spectrumSlice])
                 msg = f"Best focus offset = {np.round(fitMin, 2)}"
                 axes[1].text(fitMin, np.mean(widths), msg, horizontalalignment='right',
-                             verticalalignment='center', rotation=90, color=COLORS[spectrumSlice],
+                             verticalalignment='center', rotation=90, color=self.COLORS[spectrumSlice],
                              fontsize=legendFontSize)
 
         titleText = f"Focus curve for {obj} w/ {filt}"
         plt.suptitle(titleText, fontsize=titleFontSize)
-        legendText = ['m=+1 blue end', 'm=+1 middle', 'm=+1 red end']
+        legendText = self._generateLegendText(nSpectrumSlices)
         axes[0].legend(pointsForLegend, legendText, fontsize=legendFontSize)
         axes[1].legend(pointsForLegend, legendText, fontsize=legendFontSize)
         f.tight_layout(rect=[0, 0.03, 1, 0.95])
@@ -218,6 +229,19 @@ class FocusAnalyzer():
             print(f"Best fit for spectrum slice {i} = {bestFit:.4f}mm")
         return bestFits
 
+    def _generateLegendText(self, nSpectrumSlices):
+        if nSpectrumSlices == 1:
+            return ['m=+1 spectrum slice']
+        if nSpectrumSlices == 2:
+            return ['m=+1 blue end', 'm=+1 red end']
+
+        legendText = []
+        legendText.append('m=+1 blue end')
+        for i in range(nSpectrumSlices-2):
+            legendText.append('m=+1 redder...')
+        legendText.append('m=+1 red end')
+        return legendText
+
 
 if __name__ == '__main__':
     repoDir = '/project/shared/auxTel/'
@@ -225,5 +249,5 @@ if __name__ == '__main__':
     # dataId = {'dayObs': '2020-02-20', 'seqNum': 485}  # direct image
     dataId = {'dayObs': '2020-03-12'}
     seqNums = [121, 122]
-    data = analyzer.getFocusData(dataId['dayObs'], seqNums)
-    analyzer.fitDataAndPlot(data)
+    data, filt, obj = analyzer.getFocusData(dataId['dayObs'], seqNums, doDisplay=True)
+    analyzer.fitDataAndPlot(data, filt, obj)
