@@ -3,6 +3,7 @@
 import argparse
 import glob
 import sys
+import os
 from os.path import abspath
 from lsst.rapid.analysis.headerFunctions import keyValuesSetFromFiles
 
@@ -21,18 +22,33 @@ def main():
                         help="Print all keys for each file?")
     parser.add_argument("--noWarn", action='store_true', help="Suppress warnings for keys not in header?",
                         default=False, dest='noWarn')
+    parser.add_argument("--walk", action='store_true', help="Ignore path glob and walk whole tree for"
+                        " all fits and fits.gz files",
+                        default=False, dest='walk')
+    parser.add_argument("--oneFilePerDir", action='store_true', help="If walking, only take one file from"
+                        " each directory",
+                        default=False, dest='oneFilePerDir')
 
     args = parser.parse_args()
     keys = args.keys
     joinKeys = args.joinKeys
     noWarn = args.noWarn
+    walk = args.walk
+    oneFilePerDir = args.oneFilePerDir
     libraryLocation = args.libraryLocation
     printPerFile = args.printPerFile
-
     # important to use absolute paths always, as these are used to key the
     # dicts and these are also pickled, so need to be the same no matter where
     # this is run from
-    files = [abspath(f) for f in glob.glob(args.files)]
+    files = []
+    if walk:
+        for dirpath, dirnames, filenames in os.walk(args.files):
+            for filename in [f for f in filenames if f.endswith(".fits") or f.endswith(".fits.gz")]:
+                files.append(abspath(os.path.join(dirpath, filename)))
+                if oneFilePerDir:
+                    break
+    else:
+        files = [abspath(f) for f in glob.glob(args.files)]
 
     if not keys and not joinKeys:
         print(("No keys requested for scraping! Specify with e.g. -k KEY1 KEY2, "
