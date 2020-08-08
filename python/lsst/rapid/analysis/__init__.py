@@ -25,3 +25,4 @@ from .visitCheck import *
 from .headerFunctions import *
 from .bestEffort import *
 from .monitoring import *
+from .animation import *
