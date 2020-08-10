@@ -109,7 +109,8 @@ class Animator():
             print(f"dIdsWithoutPngs = {dIdsWithoutPngs}")
 
         # check the datasets exist for the pngs which need remaking
-        missingData = [d for d in dIdsWithoutPngs if not butler.datasetExists(self.dataProcuctToPlot, **d)]
+        missingData = [d for d in dIdsWithoutPngs if not self.butler.datasetExists(self.dataProcuctToPlot,
+                                                                                   **d)]
         if missingData:
             for dId in missingData:
                 msg = f"Failed to find {self.dataProcuctToPlot} for {dId}"
@@ -165,9 +166,9 @@ class Animator():
             return observationAltAz.secz.value
 
         items = ["OBJECT", "expTime", "FILTER", "imageType"]
-        obj, expTime, filterCompound, imageType = butler.queryMetadata('raw', items, **dataId)[0]
+        obj, expTime, filterCompound, imageType = self.butler.queryMetadata('raw', items, **dataId)[0]
         filt, grating = filterCompound.split('~')
-        rawMd = butler.get('raw_md', **dataId)
+        rawMd = self.butler.get('raw_md', **dataId)
         airmass = _airMassFromrRawMd(rawMd)
 
         title = f"Object: {obj} expTime: {expTime}s Filter: {filt} Grating: {grating} Airmass: {airmass:.3f}"
