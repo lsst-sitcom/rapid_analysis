@@ -111,16 +111,28 @@ class Animator():
         # check the datasets exist for the pngs which need remaking
         missingData = [d for d in dIdsWithoutPngs if not self.butler.datasetExists(self.dataProcuctToPlot,
                                                                                    **d)]
+
+        logger.info(f"Of the provided {len(self.dataIdList)} dataIds:")
+        logger.info(f"{len(dIdsWithPngs)} existing pngs were found")
+        logger.info(f"{len(dIdsWithoutPngs)} do not yet exist")
+
         if missingData:
             for dId in missingData:
                 msg = f"Failed to find {self.dataProcuctToPlot} for {dId}"
                 logger.warn(msg)
                 self.dataIdList.remove(dId)
+            logger.info(f"Of the {len(dIdsWithoutPngs)} dataIds without pngs, {len(missingData)}" +
+                         " did not have the corresponding dataset existing")
 
         if self.remakePngs:
             self.pngsToMakeDataIds = [d for d in self.dataIdList if d not in missingData]
         else:
             self.pngsToMakeDataIds = [d for d in dIdsWithoutPngs if d not in missingData]
+
+        msg = f"So {len(self.pngsToMakeDataIds)} will be made"
+        if self.remakePngs and len(dIdsWithPngs) > 0:
+            msg += " because remakePngs=True"
+        logger.info(msg)
 
     def run(self):
         # make the missing pngs
@@ -203,9 +215,11 @@ class Animator():
             exp = self._smoothExp(exp, 2)
         self.disp.mtv(exp.image, title=self._titleFromExp(exp, dataId))
         if self.plotObjectCentroids:
-            pixCoord = self.getStarPixCoord(exp)
-            # self.disp.dot('o', *pixCoord, ctype='C1', size=50)
-            self.disp.dot('x', *pixCoord, ctype='C1', size=50)
+            try:
+                pixCoord = self.getStarPixCoord(exp)
+                self.disp.dot('x', *pixCoord, ctype='C1', size=50)
+            except Exception:
+                logger.warn(f"Failed to find OBJECT location for {dataId}")
 
         self.fig.savefig(saveFilename)
 
@@ -250,6 +264,6 @@ if __name__ == '__main__':
     dataId = dataIds[0]
 
     pathToPngs = '/home/mfl/animatorTest'
-    animator = Animator(butler, dataIds, pathToPngs, 'animation.mp4',
+    animator = Animator(butler, dataIds, pathToPngs, 'testAnimation.mp4',
                         remakePngs=False, debug=False, clobberVideoAndGif=True)
     animator.run()
