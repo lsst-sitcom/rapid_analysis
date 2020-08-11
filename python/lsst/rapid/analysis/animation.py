@@ -26,6 +26,7 @@ class Animator():
     def __init__(self, butler, dataIdList, outputPath, outputFilename, *,
                  remakePngs=False,
                  clobberVideoAndGif=False,
+                 keepIntermediateGif=False,
                  smoothImages=True,
                  plotObjectCentroids=True,
                  dataProcuctToPlot='calexp',
@@ -42,6 +43,7 @@ class Animator():
 
         self.remakePngs = remakePngs
         self.clobberVideoAndGif = clobberVideoAndGif
+        self.keepIntermediateGif = keepIntermediateGif
         self.smoothImages = smoothImages
         self.plotObjectCentroids = plotObjectCentroids
         self.dataProcuctToPlot = dataProcuctToPlot
@@ -50,8 +52,8 @@ class Animator():
 
         # zfilled at the start as animation is alphabetical
         # if you're doing more than 1e6 files you've got bigger problems
-        self.toAnimateTemplate = "%06d-%s.png"
-        self.basicTemplate = "%s.png"
+        self.toAnimateTemplate = "%06d-%s-%s.png"
+        self.basicTemplate = "%s-%s.png"
 
         afwDisplay.setDefaultBackend("matplotlib")
         self.fig = plt.figure(figsize=(15, 15))
@@ -78,10 +80,10 @@ class Animator():
         dIdStr = dIdStr.replace(':', "-")
         dIdStr = dIdStr.replace(',', "-")
         if includeNumber:  # for use in temp dir, so not full path
-            filename = self.toAnimateTemplate%(imNum, dIdStr)
+            filename = self.toAnimateTemplate%(imNum, dIdStr, self.dataProcuctToPlot)
             return os.path.join(filename)
         else:
-            filename = self.basicTemplate%(dIdStr)
+            filename = self.basicTemplate%(dIdStr, self.dataProcuctToPlot)
             return os.path.join(self.pngPath, filename)
 
     def exists(self, obj):
@@ -122,7 +124,7 @@ class Animator():
                 logger.warn(msg)
                 self.dataIdList.remove(dId)
             logger.info(f"Of the {len(dIdsWithoutPngs)} dataIds without pngs, {len(missingData)}" +
-                         " did not have the corresponding dataset existing")
+                        " did not have the corresponding dataset existing")
 
         if self.remakePngs:
             self.pngsToMakeDataIds = [d for d in self.dataIdList if d not in missingData]
@@ -163,7 +165,7 @@ class Animator():
         # gif turn into mp4, optionally keep gif by moving up to output dir
         logger.info(f'Turning gif into mp4...')
         outputMp4Filename = self.outputFilename
-        self.gifToMp4(outputGifFilename, outputMp4Filename, copyGifToOutdir=True)
+        self.gifToMp4(outputGifFilename, outputMp4Filename)
 
         self.tidyUp(tempDir)
         logger.info(f'Finished!')
@@ -183,7 +185,8 @@ class Animator():
         rawMd = self.butler.get('raw_md', **dataId)
         airmass = _airMassFromrRawMd(rawMd)
 
-        title = f"Object: {obj} expTime: {expTime}s Filter: {filt} Grating: {grating} Airmass: {airmass:.3f}"
+        title = f"{dataId['dayObs']} - seqNum {dataId['seqNum']} - "
+        title += f"Object: {obj} expTime: {expTime}s Filter: {filt} Grating: {grating} Airmass: {airmass:.3f}"
         return title
 
     def getStarPixCoord(self, exp):
@@ -205,15 +208,20 @@ class Animator():
 
     def makePng(self, dataId, saveFilename):
         if self.exists(saveFilename) and not self.remakePngs:  # should not be possible due to prerun
-            assert False
+            assert False, f"Almost overwrote {saveFilename} - how is this possible?"
 
         if self.debug:
             print(f"Creating {saveFilename}")
 
+        self.disp.erase()
+        self.fig.clear()
         exp = self.butler.get(self.dataProcuctToPlot, **dataId)
         if self.smoothImages:
             exp = self._smoothExp(exp, 2)
         self.disp.mtv(exp.image, title=self._titleFromExp(exp, dataId))
+        # import ipdb as pdb; pdb.set_trace()
+        self.disp.scale('asinh', 'zscale')
+
         if self.plotObjectCentroids:
             try:
                 pixCoord = self.getStarPixCoord(exp)
@@ -226,13 +234,13 @@ class Animator():
     def pngsToGif(self, fileList, outputGifFilename):
         subprocess.run(['convert', '-delay', '10', '-loop', '0', *fileList, outputGifFilename], check=True)
 
-    def gifToMp4(self, inputGifFilename, outputMp4Filename, copyGifToOutdir=True):
+    def gifToMp4(self, inputGifFilename, outputMp4Filename):
         command = (f'{self.ffMpegBinary} -i {inputGifFilename} -pix_fmt yuv420p'
                    f' -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" {outputMp4Filename}')
         output, error = subprocess.Popen(command, universal_newlines=True, shell=True,
                                          stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
 
-        if copyGifToOutdir:
+        if self.keepIntermediateGif:
             outputGifName = self.outputFilename.replace('.mp4', '.gif')
             shutil.copy(inputGifFilename, outputGifName)
 
@@ -255,15 +263,52 @@ class Animator():
 
 if __name__ == '__main__':
     butler = dafPersist.Butler('/project/shared/auxTel/rerun/mfl/preprocessing/')
-    dataIds = [{'dayObs': '2020-03-15', 'seqNum': 161},
-               {'dayObs': '2020-03-15', 'seqNum': 162},
-               {'dayObs': '2020-03-15', 'seqNum': 163},
-               {'dayObs': '2020-03-15', 'seqNum': 164},
-               {'dayObs': '2020-03-15', 'seqNum': 164000}]
+    if False:
+        dataIds = [{'dayObs': '2020-03-15', 'seqNum': 161},
+                   {'dayObs': '2020-03-15', 'seqNum': 162},
+                   {'dayObs': '2020-03-15', 'seqNum': 163},
+                   {'dayObs': '2020-03-15', 'seqNum': 164},
+                   {'dayObs': '2020-03-15', 'seqNum': 164000}]
+        dataId = dataIds[0]
 
-    dataId = dataIds[0]
+        pathToPngs = '/home/mfl/animatorTest'
+        animator = Animator(butler, dataIds, pathToPngs, 'testAnimation.mp4',
+                            remakePngs=True, debug=False, clobberVideoAndGif=True)
+        animator.run()
 
-    pathToPngs = '/home/mfl/animatorTest'
-    animator = Animator(butler, dataIds, pathToPngs, 'testAnimation.mp4',
-                        remakePngs=False, debug=False, clobberVideoAndGif=True)
-    animator.run()
+    else:
+        skipTypes = ['BIAS', 'DARK', 'FLAT']
+        days = ['2020-02-17', '2020-02-18', '2020-02-19', '2020-02-20', '2020-02-21',
+                '2020-03-12', '2020-03-13', '2020-03-14', '2020-03-15', '2020-03-16']
+        dataIds = []
+        for dayObs in days:
+            data = butler.queryMetadata('raw', ['seqNum', 'filter', 'imageType'], dayObs=dayObs)
+            for (seqNum, filterCompound, imageType) in data:
+                filt = filterCompound.split("~")[0]
+                grating = filterCompound.split("~")[1]
+                dataIds.append({'dayObs': dayObs,
+                                'seqNum': seqNum,
+                                'filter': filt,
+                                'grating': grating,
+                                'imageType': imageType})
+
+        def isOnSky(dataId):
+            if dataId['imageType'] not in skipTypes:
+                return True
+            return False
+
+        scienceIds = [x for x in filter(isOnSky, dataIds)]
+
+        print(f'{len(dataIds)} dataIds total')
+        print(f'{len(scienceIds)} science ids')
+
+        fitted = []
+        for dataId in scienceIds:
+            if butler.datasetExists('calexp', dayObs=dataId['dayObs'], seqNum=dataId['seqNum']):
+                fitted.append({'dayObs': dataId['dayObs'], 'seqNum': dataId['seqNum']})
+        print(f'{len(fitted)} with astrometric fits')
+
+        pathToPngs = '/home/mfl/animatorOutput'
+        animator = Animator(butler, fitted, pathToPngs, 'astrometricFits.mp4',
+                            remakePngs=False, debug=False, clobberVideoAndGif=True)
+        animator.run()
