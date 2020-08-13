@@ -26,3 +26,4 @@ from .headerFunctions import *
 from .bestEffort import *
 from .monitoring import *
 from .animation import *
+from .imageSorter import *
