@@ -133,7 +133,9 @@ class ImageSorter():
                 plt.show(block=False)
                 plt.draw()  # without this you get the same image each time
                 plt.tight_layout()
-                system('''/usr/bin/osascript -e 'tell app "Finder" to set frontmost of process "Terminal" to true' ''')
+                osascriptCall = '''/usr/bin/osascript -e 'tell app "Finder" to '''
+                osascriptCall += '''set frontmost of process "Terminal" to true' '''
+                system(osascriptCall)
 
             oldAnswer = None  # just so we can display existing info with the dataId
             if dataId in info:
