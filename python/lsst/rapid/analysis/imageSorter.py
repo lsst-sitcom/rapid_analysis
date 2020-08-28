@@ -25,6 +25,21 @@ import matplotlib.pyplot as plt
 import os
 from os import system
 
+TIPS = """
+G - Good centroid
+B - Bad centroid
+
+L - median per row lines
+C - very visible crosstalk
+F - Poor focus
+D - Donut image
+N - No target star marked!
+A - Bad amp offsets!
+V - No back bias?
+P - Bad PSF (rotation/pointing/tracking error, earthquake, etc)
+= - apply the same annotations as the previous image
+"""
+
 
 class ImageSorter():
     """Take a list on png files, as created by lsst.rapid.analysis.animator
@@ -53,9 +68,20 @@ class ImageSorter():
         seqNum = int(filename[seqIndex:].split('-')[0])
         return (dayObs, seqNum)
 
-    @staticmethod
-    def addData(dataId, info, answer, mode):
+    def getPreviousAnnotation(self, info, imNum):
+        if imNum == 0:
+            raise RuntimeError("There is no previous annotation for the first image.")
+
+        previousFilename = self.fileList[imNum-1]
+        previousDataId = self._getDataIdFromFilename(previousFilename)
+        previousAnnotation = info[previousDataId]
+        return previousAnnotation
+
+    def addData(self, dataId, info, answer, mode, imNum):
         """Modes = O(verwrite), S(kip), A(ppend)"""
+        if '=' in answer:
+            answer = self.getPreviousAnnotation(info, imNum)
+
         if dataId not in info:
             info[dataId] = answer
             return
@@ -113,10 +139,11 @@ class ImageSorter():
         # need to write file first, even if empty, because load and save
         # are inside the loop to ensure that annotations aren't lost even on
         # full crash
+        print(TIPS)
         self.save(info, self.outputFilename)
 
         plt.figure(figsize=(10, 10))
-        for filename in self.fileList:
+        for imNum, filename in enumerate(self.fileList):
             info = self.load(self.outputFilename)
 
             dataId = self._getDataIdFromFilename(filename)
@@ -129,6 +156,7 @@ class ImageSorter():
                 width, height = pilImage.size
                 cropLR, cropUD = 100, 180
                 cropped = pilImage.crop((cropLR, cropUD, width-cropLR, height-cropUD))
+                plt.clf()
                 plt.imshow(cropped, interpolation="bicubic")
                 plt.show(block=False)
                 plt.draw()  # without this you get the same image each time
@@ -145,7 +173,7 @@ class ImageSorter():
             if 'exit' in answer:
                 break  # break don't exit so data is written!
 
-            self.addData(dataId, info, answer, mode)
+            self.addData(dataId, info, answer, mode, imNum)
             self.save(info, self.outputFilename)
 
         print(f'Info written to {self.outputFilename}')
@@ -159,5 +187,5 @@ if __name__ == '__main__':
                 '/Users/merlin/rsync/animatorOutput/pngs/dayObs-2020-02-17-seqNum-234-calexp.png',
                 '/Users/merlin/rsync/animatorOutput/pngs/dayObs-2020-02-17-seqNum-235-calexp.png']
 
-    sorter = ImageSorter(fileList, '/Users/merlin/testFile.txt')
+    sorter = ImageSorter(fileList, '/Users/merlin/scratchfile.txt')
     sorter.sortImages()
