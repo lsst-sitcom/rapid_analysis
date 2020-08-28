@@ -250,7 +250,9 @@ class Animator():
 
     def _smoothExp(self, exp, smoothing, kernelSize=7):
         """Use for DISPLAY ONLY!
-        Return a smoothed copy of the exposure with the original mask plane in place."""
+
+        Return a smoothed copy of the exposure
+        with the original mask plane in place."""
         psf = measAlg.DoubleGaussianPsf(kernelSize, kernelSize, smoothing/(2*math.sqrt(2*math.log(2))))
         newExp = exp.clone()
         originalMask = exp.mask
