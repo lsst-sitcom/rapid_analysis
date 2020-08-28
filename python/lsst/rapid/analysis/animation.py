@@ -52,8 +52,8 @@ class Animator():
 
         # zfilled at the start as animation is alphabetical
         # if you're doing more than 1e6 files you've got bigger problems
-        self.toAnimateTemplate = "%06d-%s-%s.png"
-        self.basicTemplate = "%s-%s.png"
+        self.toAnimateTemplate = "%06d-%s-%03d.png"
+        self.basicTemplate = "%s-%03d.png"
 
         afwDisplay.setDefaultBackend("matplotlib")
         self.fig = plt.figure(figsize=(15, 15))
