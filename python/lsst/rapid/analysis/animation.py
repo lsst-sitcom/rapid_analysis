@@ -275,7 +275,12 @@ class Animator():
 
 
 if __name__ == '__main__':
-    butler = dafPersist.Butler('/project/shared/auxTel/rerun/mfl/preprocessing/')
+    dataProcuctToPlot = 'postISRCCD'
+    repoPath = '/project/shared/auxTel/rerun/mfl/preprocessing_MPR/'
+    outputPath = '/home/mfl/animatorOutput_MPR'
+    outputFilename = 'all_MPR.mp4'
+
+    butler = dafPersist.Butler(repoPath)
     if False:
         dataIds = [{'dayObs': '2020-03-15', 'seqNum': 161},
                    {'dayObs': '2020-03-15', 'seqNum': 162},
@@ -317,11 +322,10 @@ if __name__ == '__main__':
 
         fitted = []
         for dataId in scienceIds:
-            if butler.datasetExists('calexp', dayObs=dataId['dayObs'], seqNum=dataId['seqNum']):
+            if butler.datasetExists(dataProcuctToPlot, dayObs=dataId['dayObs'], seqNum=dataId['seqNum']):
                 fitted.append({'dayObs': dataId['dayObs'], 'seqNum': dataId['seqNum']})
-        print(f'{len(fitted)} with astrometric fits')
+        print(f'{len(fitted)} with {dataProcuctToPlot}')
 
-        pathToPngs = '/home/mfl/animatorOutput'
-        animator = Animator(butler, fitted, pathToPngs, 'astrometricFits.mp4',
+        animator = Animator(butler, fitted, outputPath, outputFilename, dataProcuctToPlot=dataProcuctToPlot,
                             remakePngs=False, debug=False, clobberVideoAndGif=True)
         animator.run()
