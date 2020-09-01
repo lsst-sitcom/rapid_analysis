@@ -52,8 +52,8 @@ class Animator():
 
         # zfilled at the start as animation is alphabetical
         # if you're doing more than 1e6 files you've got bigger problems
-        self.toAnimateTemplate = "%06d-%s-%03d.png"
-        self.basicTemplate = "%s-%03d.png"
+        self.toAnimateTemplate = "%06d-%s-%s.png"
+        self.basicTemplate = "%s-%s.png"
 
         afwDisplay.setDefaultBackend("matplotlib")
         self.fig = plt.figure(figsize=(15, 15))
@@ -64,14 +64,12 @@ class Animator():
         self.pngsToMakeDataIds = []
         self.preRun()  # sets the above list
 
-    def dataIdToFilename(self, dataId, includeNumber=False, imNum=None):
-        """Convert dataId to filename.
+    @staticmethod
+    def _strDataId(dataId):
+        if 'dayObs' in dataId and 'seqNum' in dataId:  # nicely ordered if easy
+            return f"{dataId['dayObs']}-{dataId['seqNum']:03d}"
 
-        Returns a full path+filename by default. if includeNumber then
-        returns just the filename for use in temporary dir for animation."""
-        if includeNumber:
-            assert imNum is not None
-        # Yeah, I should probably learn regex someday
+        # General case (and yeah, I should probably learn regex someday)
         dIdStr = str(dataId)
         dIdStr = dIdStr.replace(' ', "")
         dIdStr = dIdStr.replace('{', "")
@@ -79,6 +77,18 @@ class Animator():
         dIdStr = dIdStr.replace('\'', "")
         dIdStr = dIdStr.replace(':', "-")
         dIdStr = dIdStr.replace(',', "-")
+        return dIdStr
+
+    def dataIdToFilename(self, dataId, includeNumber=False, imNum=None):
+        """Convert dataId to filename.
+
+        Returns a full path+filename by default. if includeNumber then
+        returns just the filename for use in temporary dir for animation."""
+        if includeNumber:
+            assert imNum is not None
+
+        dIdStr = self._strDataId(dataId)
+
         if includeNumber:  # for use in temp dir, so not full path
             filename = self.toAnimateTemplate%(imNum, dIdStr, self.dataProcuctToPlot)
             return os.path.join(filename)
@@ -96,6 +106,7 @@ class Animator():
         assert os.path.exists(self.ffMpegBinary), "Cannot find ffMeg binary for animation"
         if not os.path.exists(self.pngPath):
             os.makedirs(self.pngPath)
+        assert os.path.exists(self.pngPath), f"Failed to create output dir: {self.pngsPath}"
 
         if self.exists(self.outputFilename):
             if self.clobberVideoAndGif:
