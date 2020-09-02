@@ -96,14 +96,40 @@ class ImageSorter():
             raise RuntimeError(f"Unrecognised mode {mode} - should be impossible")
         return
 
+    @classmethod
+    def loadAnnotations(cls, pickleFilename):
+        """Load back and split up annotations for easy use.
+
+        Anything after a space is returned as a whole string,
+        anything before it is lower-cased and returned as tags.
+
+        from lsst.rapid.analysis import ImageSorter
+        tags, notes = ImageSorter.loadAnnotations(pickleFilename)
+        """
+        loaded = cls._load(pickleFilename)
+
+        tags, notes = {}, {}
+
+        for dataId, answerFull in loaded.items():
+            answer = answerFull.lower()
+            if " " in answer:
+                answer = answerFull.split()[0]
+                notes[dataId] = " ".join([_ for _ in answerFull.split()[1:]])
+            tags[dataId] = answer
+
+        return tags, notes
+
     @staticmethod
-    def load(filename):
+    def _load(filename):
+        """Internal loading only.
+
+        Not to be used by users for reading back annotations"""
         with open(filename, "rb") as pickleFile:
             info = pickle.load(pickleFile)
         return info
 
     @staticmethod
-    def save(info, filename):
+    def _save(info, filename):
         with open(filename, "wb") as dumpFile:
             pickle.dump(info, dumpFile)
 
@@ -111,7 +137,7 @@ class ImageSorter():
         mode = 'A'
         info = {}
         if os.path.exists(self.outputFilename):
-            info = self.load(self.outputFilename)
+            info = self._load(self.outputFilename)
 
             print(f'Output file {self.outputFilename} exists with info on {len(info)} files:')
             print('Press A - view all images, appending info to existing entries')
@@ -136,15 +162,15 @@ class ImageSorter():
                 self.sortImages()
                 return  # don't run twice in this case!
 
-        # need to write file first, even if empty, because load and save
+        # need to write file first, even if empty, because _load and _save
         # are inside the loop to ensure that annotations aren't lost even on
         # full crash
         print(TIPS)
-        self.save(info, self.outputFilename)
+        self._save(info, self.outputFilename)
 
         plt.figure(figsize=(10, 10))
         for imNum, filename in enumerate(self.fileList):
-            info = self.load(self.outputFilename)
+            info = self._load(self.outputFilename)
 
             dataId = self._getDataIdFromFilename(filename)
             if dataId in info and mode in ['S', 'B']:  # always skip if found for S and if not blank for B
@@ -174,7 +200,7 @@ class ImageSorter():
                 break  # break don't exit so data is written!
 
             self.addData(dataId, info, answer, mode, imNum)
-            self.save(info, self.outputFilename)
+            self._save(info, self.outputFilename)
 
         print(f'Info written to {self.outputFilename}')
 
