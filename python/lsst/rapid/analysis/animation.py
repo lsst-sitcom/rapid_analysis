@@ -9,12 +9,12 @@ from astropy.time import Time
 import astropy.units as u
 import matplotlib.pyplot as plt
 
+from lsst.atmospec.processStar import getTargetCentroidFromWcs
 import lsst.afw.display as afwDisplay
 import lsst.afw.math as afwMath
 import lsst.daf.persistence as dafPersist
 import lsst.log
 import lsst.meas.algorithms as measAlg
-import lsst.geom as geom
 
 logger = lsst.log.Log.getLogger("lsst.rapid.analysis.animation")
 
@@ -200,21 +200,9 @@ class Animator():
         title += f"Object: {obj} expTime: {expTime}s Filter: {filt} Grating: {grating} Airmass: {airmass:.3f}"
         return title
 
-    def getStarPixCoord(self, exp):
-        from astroquery.simbad import Simbad
+    def getStarPixCoord(self, exp, doMotionCorrection=True):
         target = exp.getMetadata()['OBJECT']
-        obj = Simbad.query_object(target)
-        assert len(obj) == 1
-
-        raStr = obj[0]['RA']
-        decStr = obj[0]['DEC']
-        skyLocation = SkyCoord(raStr, decStr, unit=(u.hourangle, u.degree), frame='icrs')
-        raRad, decRad = skyLocation.ra.rad, skyLocation.dec.rad
-        ra = geom.Angle(raRad)
-        dec = geom.Angle(decRad)
-        targetLocation = geom.SpherePoint(ra, dec)
-
-        pixCoord = exp.getWcs().skyToPixel(targetLocation)
+        pixCoord = getTargetCentroidFromWcs(exp, target, doMotionCorrection=doMotionCorrection)
         return pixCoord
 
     def makePng(self, dataId, saveFilename):
@@ -277,8 +265,8 @@ class Animator():
 if __name__ == '__main__':
     dataProcuctToPlot = 'postISRCCD'
     repoPath = '/project/shared/auxTel/rerun/mfl/preprocessing_MPR/'
-    outputPath = '/home/mfl/animatorOutput_MPR'
-    outputFilename = 'all_MPR.mp4'
+    outputPath = '/home/mfl/animatorOutput_motionCorrection'
+    outputFilename = 'all_motionCorrected.mp4'
 
     butler = dafPersist.Butler(repoPath)
     if False:
