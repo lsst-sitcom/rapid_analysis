@@ -42,13 +42,18 @@ def main():
     # this is run from
     files = []
     if walk:
+        dirToWalk = os.path.dirname(abspath(args.files))
+        print(f"Walking files from {dirToWalk}...")
+
         for dirpath, dirnames, filenames in os.walk(args.files):
+            print(f"Collected {len(files)} files so far...")
             for filename in [f for f in filenames if f.endswith(".fits") or f.endswith(".fits.gz")]:
                 files.append(abspath(os.path.join(dirpath, filename)))
                 if oneFilePerDir:
                     break
     else:
         files = [abspath(f) for f in glob.glob(args.files)]
+    print(f"Collected {len(files)} in total")
 
     if not keys and not joinKeys:
         print(("No keys requested for scraping! Specify with e.g. -k KEY1 KEY2, "
