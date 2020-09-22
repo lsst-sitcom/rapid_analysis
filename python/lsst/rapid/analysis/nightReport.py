@@ -21,6 +21,8 @@
 
 from dataclasses import dataclass
 import logging
+import os
+import pickle
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -33,12 +35,34 @@ from astropy.coordinates import SkyCoord, EarthLocation, AltAz
 import lsst.daf.persistence as dafPersist
 from astro_metadata_translator import ObservationInfo
 
+__all__ = ['NightReporter', 'saveReport', 'loadReport']
+
 CALIB_VALUES = ['FlatField position', 'Park position', 'azel_target']
 N_STARS_PER_SYMBOL = 6
 MARKER_SEQUENCE = ['*', 'o', "D", 'P', 'v', "^", 's', '.', ',', 'o', 'v', '^',
                    '<', '>', '1', '2', '3', '4', '8', 's', 'p', 'P', '*', 'h',
                    'H', '+', 'x', 'X', 'D', 'd', '|', '_']
 SOUTHPOLESTAR = 'HD 185975'
+
+PICKLE_TEMPLATE = "%s.pickle"
+
+
+# wanted these to be on the class but it doesn't pickle itself nicely
+def saveReport(reporter, savePath):
+    # the reporter._butler seems to pickle OK but perhaps it should be
+    # removed for saving (and re-instantiated from _repoDir on load?)
+    filename = os.path.join(savePath, PICKLE_TEMPLATE % reporter.dayObs)
+    with open(filename, "wb") as dumpFile:
+        pickle.dump(reporter, dumpFile)
+
+
+def loadReport(loadPath, dayObs):
+    filename = os.path.join(loadPath, PICKLE_TEMPLATE % dayObs)
+    if not os.path.exists(filename):
+        raise FileNotFoundError(f"{filename} not found")
+    with open(filename, "rb") as input_file:
+        reporter = pickle.load(input_file)
+    return reporter
 
 
 @dataclass
@@ -54,6 +78,7 @@ class NightReporter():
         self._supressAstroMetadataTranslatorWarnings()  # call early
 
         self._butler = dafPersist.Butler(repoDir)
+        self._repoDir = repoDir
         self.dayObs = dayObs
         self.data = {}
         self.stars = None
