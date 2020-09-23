@@ -29,6 +29,7 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
 
 import lsst.daf.persistence as dafPersist
+from lsst.obs.lsst.translators.lsst import FILTER_DELIMITER
 from astro_metadata_translator import ObservationInfo
 
 from lsst.atmospec.utils import airMassFromRawMetadata
@@ -194,30 +195,31 @@ class NightReporter():
     def getAllHeaderKeys(self):
         return list(list(self.data.items())[0][1].keys())
 
-    def _airMassFromHeader(self, header):
-        time = Time(header['DATE-OBS'])
-        if header['RASTART'] is not None and header['DECSTART'] is not None:
-            skyLocation = SkyCoord(header['RASTART'], header['DECSTART'], unit=u.deg)
-        elif header['RA'] is not None and header['DEC'] is not None:
-            skyLocation = SkyCoord(header['RA'], header['DEC'], unit=u.deg)
-        else:
-            return 0
-        altAz = AltAz(obstime=time, location=self._auxTelLocation)
-        observationAltAz = skyLocation.transform_to(altAz)
-        return observationAltAz.secz.value
+    @staticmethod  # designed for use in place of user-provided filter callbacks so gets self via call
+    def isDispersed(self, seqNum):
+        filt = self.data[seqNum]['ObservationInfo'].physical_filter
+        grating = filt.split(FILTER_DELIMITER)[1]
+        if "EMPTY" not in grating:
+            return True
+        return False
 
-    def _calcObjectAirmasses(self, objects):
+    def _calcObjectAirmasses(self, objects, filterFunc=None):
+        if filterFunc is None:
+            def noopFilter(*args, **kwargs):
+                return True
+            filterFunc = noopFilter
         airMasses = {}
         for star in objects:
             seqNums = self.getObjectValues('SEQNUM', star)
-            airMasses[star] = [(self._airMassFromHeader(self.data[seqNum]),
-                                self.data[seqNum]['MJD'])for seqNum in sorted(seqNums)]
+            airMasses[star] = [(airMassFromRawMetadata(self.data[seqNum]), self.data[seqNum]['MJD'])
+                               for seqNum in sorted(seqNums) if filterFunc(self, seqNum)]
         return airMasses
 
     def getObservedObjects(self):
         return self.getUniqueValuesForKey('OBJECT')
 
-    def plotPerObjectAirMass(self, objects=None, versusMjd=True, airmassOneAtTop=True):
+    def plotPerObjectAirMass(self, objects=None, versusMjd=True, airmassOneAtTop=True, filterFunc=None):
+        """filterFunc is self as the first argument and seqNum as second."""
         if not objects:
             objects = self.stars
 
@@ -226,11 +228,14 @@ class NightReporter():
         # lazy to always recalculate but it's not *that* slow
         # and optionally passing around can be messy
         # TODO: keep some of this in class state
-        airMasses = self._calcObjectAirmasses(objects)
+        airMasses = self._calcObjectAirmasses(objects, filterFunc=filterFunc)
 
         _ = plt.figure(figsize=(10, 6))
         for star in objects:
-            ams, times = np.asarray(airMasses[star])[:, 0], np.asarray(airMasses[star])[:, 1]
+            if airMasses[star]:  # skip stars fully filtered out by callbacks
+                ams, times = np.asarray(airMasses[star])[:, 0], np.asarray(airMasses[star])[:, 1]
+            else:
+                continue
             color = self.cMap[star].color
             marker = self.cMap[star].marker
             if versusMjd:
