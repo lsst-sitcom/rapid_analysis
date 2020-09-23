@@ -199,7 +199,12 @@ class NightReporter():
 
     def _airMassFromHeader(self, header):
         time = Time(header['DATE-OBS'])
-        skyLocation = SkyCoord(header['RASTART'], header['DECSTART'], unit=u.deg)
+        if header['RASTART'] is not None and header['DECSTART'] is not None:
+            skyLocation = SkyCoord(header['RASTART'], header['DECSTART'], unit=u.deg)
+        elif header['RA'] is not None and header['DEC'] is not None:
+            skyLocation = SkyCoord(header['RA'], header['DEC'], unit=u.deg)
+        else:
+            return 0
         altAz = AltAz(obstime=time, location=self._auxTelLocation)
         observationAltAz = skyLocation.transform_to(altAz)
         return observationAltAz.secz.value
