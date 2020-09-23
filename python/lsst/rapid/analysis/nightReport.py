@@ -28,12 +28,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
 
-import astropy.units as u
-from astropy.time import Time
-from astropy.coordinates import SkyCoord, EarthLocation, AltAz
-
 import lsst.daf.persistence as dafPersist
 from astro_metadata_translator import ObservationInfo
+
+from lsst.atmospec.utils import airMassFromRawMetadata
 
 __all__ = ['NightReporter', 'saveReport', 'loadReport']
 
@@ -83,7 +81,6 @@ class NightReporter():
         self.data = {}
         self.stars = None
         self.cMap = None
-        self._auxTelLocation = EarthLocation(lat=-30.244639*u.deg, lon=-70.749417*u.deg, height=2663*u.m)
         if not deferLoadingData:
             self.rebuild()
 

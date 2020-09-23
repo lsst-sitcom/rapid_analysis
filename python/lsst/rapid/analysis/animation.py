@@ -4,9 +4,6 @@ import shutil
 import uuid
 import math
 
-from astropy.coordinates import SkyCoord, EarthLocation, AltAz
-from astropy.time import Time
-import astropy.units as u
 import matplotlib.pyplot as plt
 
 from lsst.atmospec.processStar import getTargetCentroidFromWcs
@@ -16,6 +13,7 @@ import lsst.daf.persistence as dafPersist
 import lsst.log
 import lsst.meas.algorithms as measAlg
 
+from lsst.atmospec.utils import airMassFromRawMetadata
 logger = lsst.log.Log.getLogger("lsst.rapid.analysis.animation")
 
 
@@ -182,19 +180,11 @@ class Animator():
         logger.info(f'Finished!')
 
     def _titleFromExp(self, exp, dataId):
-        def _airMassFromrRawMd(md):
-            auxTelLocation = EarthLocation(lat=-30.244639*u.deg, lon=-70.749417*u.deg, height=2663*u.m)
-            time = Time(md['DATE-OBS'])
-            skyLocation = SkyCoord(md['RASTART'], md['DECSTART'], unit=u.deg)
-            altAz = AltAz(obstime=time, location=auxTelLocation)
-            observationAltAz = skyLocation.transform_to(altAz)
-            return observationAltAz.secz.value
-
         items = ["OBJECT", "expTime", "FILTER", "imageType"]
         obj, expTime, filterCompound, imageType = self.butler.queryMetadata('raw', items, **dataId)[0]
         filt, grating = filterCompound.split('~')
         rawMd = self.butler.get('raw_md', **dataId)
-        airmass = _airMassFromrRawMd(rawMd)
+        airmass = airMassFromRawMetadata(rawMd)
 
         title = f"{dataId['dayObs']} - seqNum {dataId['seqNum']} - "
         title += f"Object: {obj} expTime: {expTime}s Filter: {filt} Grating: {grating} Airmass: {airmass:.3f}"
@@ -263,7 +253,7 @@ class Animator():
 
 
 if __name__ == '__main__':
-    dataProcuctToPlot = 'postISRCCD'
+    dataProcuctToPlot = 'calexp'
     repoPath = '/project/shared/auxTel/rerun/mfl/preprocessing_MPR/'
     outputPath = '/home/mfl/animatorOutput_motionCorrection'
     outputFilename = 'all_motionCorrected.mp4'
