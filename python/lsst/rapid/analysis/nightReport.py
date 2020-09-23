@@ -312,8 +312,13 @@ class NightReporter():
 
 
 if __name__ == '__main__':
-    repodir = '/project/shared/auxTel/'
-    nightReporter = NightReporter(repodir, "2020-02-20")
-    stars = nightReporter.getUniqueValuesForKey('OBJECT')
-    colorMap = nightReporter.makeStarColorAndMarkerMap(stars)
-    nightReporter.makePolarPlotForObjects(stars, colorMap, withLines=False)
+    if False:
+        repodir = '/project/shared/auxTel/'
+        nightReporter = NightReporter(repodir, "2020-02-20")
+        stars = nightReporter.getUniqueValuesForKey('OBJECT')
+        colorMap = nightReporter.makeStarColorAndMarkerMap(stars)
+        nightReporter.makePolarPlotForObjects(stars, withLines=False)
+    else:
+        nightReporter = loadReport('/home/mfl/nightReports/', "2020-02-20")
+        import ipdb as pdb; pdb.set_trace()
+        nightReporter.plotPerObjectAirMass()
