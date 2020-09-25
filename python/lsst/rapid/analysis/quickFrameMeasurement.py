@@ -90,7 +90,7 @@ class QuickFrameMeasurement():
                 max25 = ap25
                 max25srcNum = srcNum
         if max70srcNum != max25srcNum:
-            print(f"WARNING! Max apFlux70 for different object than with max apFlux25")
+            print("WARNING! Max apFlux70 for different object than with max apFlux25")
         return max70srcNum
 
     def _measureFp(self, fp, exp):

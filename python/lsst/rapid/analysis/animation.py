@@ -148,13 +148,13 @@ class Animator():
     def run(self):
         # make the missing pngs
         if self.pngsToMakeDataIds:
-            logger.info(f'Creating necessary pngs...')
+            logger.info('Creating necessary pngs...')
             for i, dataId in enumerate(self.pngsToMakeDataIds):
                 print(f'Making png for file {i+1} of {len(self.pngsToMakeDataIds)}')
                 self.makePng(dataId, self.dataIdToFilename(dataId))
 
         # stage files in temp dir with numbers prepended to filenames
-        logger.info(f'Making gif of pngs...')
+        logger.info('Making gif of pngs...')
         pngFilesOriginal = [self.dataIdToFilename(d) for d in self.dataIdList]
         for filename in pngFilesOriginal:  # these must all now exist, but let's assert just in case
             assert self.exists(filename)
@@ -172,12 +172,12 @@ class Animator():
         self.pngsToGif(pngFileList, outputGifFilename)
 
         # gif turn into mp4, optionally keep gif by moving up to output dir
-        logger.info(f'Turning gif into mp4...')
+        logger.info('Turning gif into mp4...')
         outputMp4Filename = self.outputFilename
         self.gifToMp4(outputGifFilename, outputMp4Filename)
 
         self.tidyUp(tempDir)
-        logger.info(f'Finished!')
+        logger.info('Finished!')
 
     def _titleFromExp(self, exp, dataId):
         items = ["OBJECT", "expTime", "FILTER", "imageType"]

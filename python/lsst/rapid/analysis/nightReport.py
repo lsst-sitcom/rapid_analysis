@@ -325,5 +325,4 @@ if __name__ == '__main__':
         nightReporter.makePolarPlotForObjects(stars, withLines=False)
     else:
         nightReporter = loadReport('/home/mfl/nightReports/', "2020-02-20")
-        import ipdb as pdb; pdb.set_trace()
         nightReporter.plotPerObjectAirMass()

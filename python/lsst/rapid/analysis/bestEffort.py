@@ -38,9 +38,9 @@ class BestEffortIsr():
         Butler can only be reloaded if called with `repodir` option.
         defaultExtraIsrOptions is a dict of options applied to all images."""
         if not repodir and butler is None:
-            raise RuntimeError(f"You must either supply a repo dir or a butler")
+            raise RuntimeError("You must either supply a repo dir or a butler")
         if repodir and butler is not None:
-            msg = f"Ambiguous instantiation. You can either supply a repo dir OR a butler, but not both"
+            msg = "Ambiguous instantiation. You can either supply a repo dir OR a butler, but not both"
             raise RuntimeError(msg)
 
         if butler:
