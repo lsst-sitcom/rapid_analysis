@@ -215,6 +215,16 @@ class NightReporter():
                                for seqNum in sorted(seqNums) if filterFunc(self, seqNum)]
         return airMasses
 
+    def getSeqNums(self, filterFunc, *args, **kwargs):
+        """Get seqNums for a corresponding filtering function.
+
+        filterFunc is called with (self, seqNum) and must return a bool."""
+        seqNums = []
+        for seqNum in self.data.keys():
+            if filterFunc(self, seqNum, *args, **kwargs):
+                seqNums.append(seqNum)
+        return seqNums
+
     def getObservedObjects(self):
         return self.getUniqueValuesForKey('OBJECT')
 
