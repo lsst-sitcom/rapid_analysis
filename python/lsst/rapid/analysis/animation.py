@@ -253,9 +253,9 @@ class Animator():
 
 
 if __name__ == '__main__':
-    dataProcuctToPlot = 'calexp'
+    dataProcuctToPlot = 'postISRCCD'
     repoPath = '/project/shared/auxTel/rerun/mfl/preprocessing_MPR/'
-    outputPath = '/home/mfl/animatorOutput_motionCorrection'
+    outputPath = '/home/mfl/animatorOutput/animatorOutput_motionCorrection/'
     outputFilename = 'all_motionCorrected.mp4'
 
     butler = dafPersist.Butler(repoPath)
@@ -304,6 +304,10 @@ if __name__ == '__main__':
                 fitted.append({'dayObs': dataId['dayObs'], 'seqNum': dataId['seqNum']})
         print(f'{len(fitted)} with {dataProcuctToPlot}')
 
-        animator = Animator(butler, fitted, outputPath, outputFilename, dataProcuctToPlot=dataProcuctToPlot,
-                            remakePngs=False, debug=False, clobberVideoAndGif=True)
+        animator = Animator(butler, fitted, outputPath, outputFilename,
+                            dataProcuctToPlot=dataProcuctToPlot,
+                            remakePngs=False,
+                            debug=False,
+                            clobberVideoAndGif=True,
+                            plotObjectCentroids=False)
         animator.run()
