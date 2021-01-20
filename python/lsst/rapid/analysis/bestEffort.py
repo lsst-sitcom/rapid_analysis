@@ -131,7 +131,7 @@ class BestEffortIsr():
         isrConfig.doFringe = False
         isrConfig.doDefect = False
 
-        isrParts = ['bias', 'dark', 'flat', 'linearizer', 'defects']
+        isrParts = ['bias', 'dark', 'flat', 'defects']
         isrDict = {}
         for component in isrParts:
             if component in self._cache and component != 'flat':
