@@ -140,6 +140,7 @@ class Monitor():
                 exp = self.butler.get('raw', **dataId)
 
             if self.writeQuickLookImages:
+                print(f"Writing quickLookExp for {dataId}")
                 self.butler.put(exp, "quickLookExp", dataId)
 
             # TODO: add logic to deal with amp overlay and chip center
