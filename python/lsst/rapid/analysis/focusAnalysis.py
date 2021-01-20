@@ -133,6 +133,7 @@ class FocusAnalyzer():
 
             if doDisplay:
                 fig, axes = plt.subplots(1, 2, figsize=(18, 9))
+                exp.image.array[exp.image.array <= 0] = 0.001
                 axes[0].imshow(exp.image.array, norm=LogNorm(), origin='lower', cmap='gray_r')
                 plt.tight_layout()
                 arrowy, arrowx = centroid[0] - 400, centroid[1]  # numpy is backwards
