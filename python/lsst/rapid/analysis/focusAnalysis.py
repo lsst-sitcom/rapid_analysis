@@ -34,7 +34,7 @@ from scipy.optimize import curve_fit
 
 # TODO: change these back to local .imports
 from lsst.rapid.analysis.bestEffort import BestEffortIsr
-from lsst.rapid.analysis.quickFrameMeasurement import QuickFrameMeasurement
+from lsst.pipe.tasks.quickFrameMeasurement import QuickFrameMeasurementTask, QuickFrameMeasurementTaskConfig
 
 
 @dataclass
@@ -50,7 +50,8 @@ class FocusAnalyzer():
 
         self._butler = dafPersist.Butler(repoDir)
         self._bestEffort = BestEffortIsr(repoDir, **kwargs)
-        self._quickMeasure = QuickFrameMeasurement()
+        qfmTaskConfig = QuickFrameMeasurementTaskConfig()
+        self._quickMeasure = QuickFrameMeasurementTask(config=qfmTaskConfig)
 
         self.spectrumHalfWidth = 100
         self.spectrumBoxLength = 20
