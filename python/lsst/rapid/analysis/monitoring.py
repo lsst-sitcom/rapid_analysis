@@ -23,6 +23,7 @@ import os
 import numpy as np
 import lsst.daf.persistence as dafPersist
 import lsst.afw.cameraGeom.utils as cgUtils
+from lsst.pex.exceptions import NotFoundError
 from .bestEffort import BestEffortIsr
 import lsst.geom as geom
 from time import sleep
@@ -128,36 +129,39 @@ class Monitor():
 
         lastDisplayed = -1
         for i in range(nLoops):
-            dataId, expId = self._getLatestImageDataIdAndExpId()
+            try:
+                dataId, expId = self._getLatestImageDataIdAndExpId()
 
-            if lastDisplayed == expId:
-                sleep(self.cadence)
-                continue
+                if lastDisplayed == expId:
+                    sleep(self.cadence)
+                    continue
 
-            if self.runIsr:
-                exp = self.bestEffort.getExposure(dataId)
-            else:
-                exp = self.butler.get('raw', **dataId)
+                if self.runIsr:
+                    exp = self.bestEffort.getExposure(dataId)
+                else:
+                    exp = self.butler.get('raw', **dataId)
 
-            if self.writeQuickLookImages:
-                print(f"Writing quickLookExp for {dataId}")
-                self.butler.put(exp, "quickLookExp", dataId)
+                if self.writeQuickLookImages:
+                    print(f"Writing quickLookExp for {dataId}")
+                    self.butler.put(exp, "quickLookExp", dataId)
 
-            # TODO: add logic to deal with amp overlay and chip center
-            # being mutually exclusive
-            if self.measureFromChipCenter:  # after writing only!
-                exp.setXY0(geom.PointI(-2036, -2000))
+                # TODO: add logic to deal with amp overlay and chip center
+                # being mutually exclusive
+                if self.measureFromChipCenter:  # after writing only!
+                    exp.setXY0(geom.PointI(-2036, -2000))
 
-            print(f"Displaying {dataId}...")
-            imageInfoText = self._makeImageInfoText(dataId, exp, asList=True)
-            # too long of a title breaks Java FITS i/o
-            fireflyTitle = " ".join([s for s in imageInfoText])[:67]
-            self.display.scale('asinh', 'zscale')
-            self.display.mtv(exp, title=fireflyTitle)
-            if self.overlayAmps:
-                cgUtils.overlayCcdBoxes(exp.getDetector(), display=self.display, isTrimmed=True)
+                print(f"Displaying {dataId}...")
+                imageInfoText = self._makeImageInfoText(dataId, exp, asList=True)
+                # too long of a title breaks Java FITS i/o
+                fireflyTitle = " ".join([s for s in imageInfoText])[:67]
+                self.display.scale('asinh', 'zscale')
+                self.display.mtv(exp, title=fireflyTitle)
+                if self.overlayAmps:
+                    cgUtils.overlayCcdBoxes(exp.getDetector(), display=self.display, isTrimmed=True)
 
-            self._printImageInfo(imageInfoText)
-            lastDisplayed = expId
+                self._printImageInfo(imageInfoText)
+                lastDisplayed = expId
 
+            except NotFoundError as e:  # NotFoundError when filters aren't defined
+                print(f'Skipped displaying {dataId} due to {e}')
         return
