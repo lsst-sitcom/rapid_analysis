@@ -116,7 +116,8 @@ class BestEffortIsr():
         isrConfig.doWrite = False
         isrConfig.doSaturation = False
         isrConfig.doSaturationInterpolation = False
-        isrConfig.overscanNumLeadingColumnsToSkip = 20
+        isrConfig.overscanNumLeadingColumnsToSkip = 5
+        isrConfig.overscan.fitType = 'MEDIAN_PER_ROW'
 
         # apply general overrides
         self._applyConfigOverrides(isrConfig, self.defaultExtraIsrOptions)
