@@ -114,8 +114,8 @@ class BestEffortIsr():
         # default options that are probably good for most engineering time
         isrConfig = IsrTask.ConfigClass()
         isrConfig.doWrite = False
-        isrConfig.doSaturation = False
-        isrConfig.doSaturationInterpolation = False
+        isrConfig.doSaturation = True  # saturation very important for roundness measurement in qfm
+        isrConfig.doSaturationInterpolation = True
         isrConfig.overscanNumLeadingColumnsToSkip = 5
         isrConfig.overscan.fitType = 'MEDIAN_PER_ROW'
 
