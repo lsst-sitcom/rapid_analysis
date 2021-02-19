@@ -228,7 +228,7 @@ class NightReporter():
     def getObservedObjects(self):
         return self.getUniqueValuesForKey('OBJECT')
 
-    def plotPerObjectAirMass(self, objects=None, versusMjd=True, airmassOneAtTop=True, filterFunc=None):
+    def plotPerObjectAirMass(self, objects=None, airmassOneAtTop=True, filterFunc=None):
         """filterFunc is self as the first argument and seqNum as second."""
         if not objects:
             objects = self.stars
@@ -248,10 +248,8 @@ class NightReporter():
                 continue
             color = self.cMap[star].color
             marker = self.cMap[star].marker
-            if versusMjd:
-                plt.plot(times, ams, '*', color=color, marker=marker, label=star, ms=10)
-            else:
-                plt.plot(ams, '*', color=color, marker=marker, label=star, ms=10)
+            plt.plot(times, ams, '*', color=color, marker=marker, label=star, ms=10)
+
         plt.ylabel('Airmass', fontsize=20)
         if airmassOneAtTop:
             ax = plt.gca()
