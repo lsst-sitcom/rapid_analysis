@@ -6,6 +6,7 @@ import math
 
 import matplotlib.pyplot as plt
 
+from lsst.pipe.tasks.quickFrameMeasurement import QuickFrameMeasurementTask, QuickFrameMeasurementTaskConfig
 from lsst.atmospec.processStar import getTargetCentroidFromWcs
 import lsst.afw.display as afwDisplay
 import lsst.afw.math as afwMath
@@ -27,6 +28,7 @@ class Animator():
                  keepIntermediateGif=False,
                  smoothImages=True,
                  plotObjectCentroids=True,
+                 useQfmForCentroids=False,
                  dataProcuctToPlot='calexp',
                  ffMpegBinary='/home/mfl/bin/ffmpeg',
                  debug=False):
@@ -44,6 +46,7 @@ class Animator():
         self.keepIntermediateGif = keepIntermediateGif
         self.smoothImages = smoothImages
         self.plotObjectCentroids = plotObjectCentroids
+        self.useQfmForCentroids = useQfmForCentroids
         self.dataProcuctToPlot = dataProcuctToPlot
         self.ffMpegBinary = ffMpegBinary
         self.debug = debug
@@ -52,6 +55,9 @@ class Animator():
         # if you're doing more than 1e6 files you've got bigger problems
         self.toAnimateTemplate = "%06d-%s-%s.png"
         self.basicTemplate = "%s-%s.png"
+
+        qfmTaskConfig = QuickFrameMeasurementTaskConfig()
+        self.qfmTask = QuickFrameMeasurementTask(config=qfmTaskConfig)
 
         afwDisplay.setDefaultBackend("matplotlib")
         self.fig = plt.figure(figsize=(15, 15))
@@ -190,9 +196,19 @@ class Animator():
         title += f"Object: {obj} expTime: {expTime}s Filter: {filt} Grating: {grating} Airmass: {airmass:.3f}"
         return title
 
-    def getStarPixCoord(self, exp, doMotionCorrection=True):
+    def getStarPixCoord(self, exp, doMotionCorrection=True, useQfm=False):
         target = exp.getMetadata()['OBJECT']
-        pixCoord = getTargetCentroidFromWcs(exp, target, doMotionCorrection=doMotionCorrection)
+
+        if self.useQfmForCentroids:
+            try:
+                result = self.qfmTask.run(exp)
+                pixCoord = result.brightestObjCentroid
+                expId = exp.getInfo().getVisitInfo().getExposureId()
+                print(f'XXX expId {expId} centroid {pixCoord}')
+            except Exception:
+                return None
+        else:
+            pixCoord = getTargetCentroidFromWcs(exp, target, doMotionCorrection=doMotionCorrection)
         return pixCoord
 
     def makePng(self, dataId, saveFilename):
@@ -204,17 +220,24 @@ class Animator():
 
         self.disp.erase()
         self.fig.clear()
+
+        # must always keep exp unsmoothed for the centroiding via qfm
         exp = self.butler.get(self.dataProcuctToPlot, **dataId)
+        toDisplay = exp
         if self.smoothImages:
-            exp = self._smoothExp(exp, 2)
-        self.disp.mtv(exp.image, title=self._titleFromExp(exp, dataId))
-        # import ipdb as pdb; pdb.set_trace()
+            toDisplay = exp.clone()
+            toDisplay = self._smoothExp(toDisplay, 2)
+        self.disp.mtv(toDisplay.image, title=self._titleFromExp(exp, dataId))
         self.disp.scale('asinh', 'zscale')
 
         if self.plotObjectCentroids:
             try:
                 pixCoord = self.getStarPixCoord(exp)
-                self.disp.dot('x', *pixCoord, ctype='C1', size=50)
+                if pixCoord:
+                    self.disp.dot('x', *pixCoord, ctype='C1', size=50)
+                    self.disp.dot('o', *pixCoord, ctype='C1', size=50)
+                else:
+                    self.disp.dot('x', 2000, 2000, ctype='red', size=2000)
             except Exception:
                 logger.warn(f"Failed to find OBJECT location for {dataId}")
 
@@ -253,27 +276,26 @@ class Animator():
 
 
 if __name__ == '__main__':
-    dataProcuctToPlot = 'postISRCCD'
-    repoPath = '/project/shared/auxTel/rerun/mfl/preprocessing_MPR/'
-    outputPath = '/home/mfl/animatorOutput/animatorOutput_motionCorrection/'
-    outputFilename = 'all_motionCorrected.mp4'
+    dataProcuctToPlot = 'quickLookExp'
+    repoPath = '/project/shared/auxTel/rerun/quickLook'
+    outputPath = '/home/mfl/animatorOutput/feb18Debug/'
+    outputFilename = 'allFixed.mp4'
 
     butler = dafPersist.Butler(repoPath)
+
+    skipTypes = ['BIAS', 'DARK', 'FLAT']
+
+    def isOnSky(dataId):
+        if dataId['imageType'] not in skipTypes:
+            return True
+        return False
+
+    # def isDispersed(dataId):
+    #     if dataId['imageType'] not in skipTypes:
+    #         return True
+    #     return False
+
     if False:
-        dataIds = [{'dayObs': '2020-03-15', 'seqNum': 161},
-                   {'dayObs': '2020-03-15', 'seqNum': 162},
-                   {'dayObs': '2020-03-15', 'seqNum': 163},
-                   {'dayObs': '2020-03-15', 'seqNum': 164},
-                   {'dayObs': '2020-03-15', 'seqNum': 164000}]
-        dataId = dataIds[0]
-
-        pathToPngs = '/home/mfl/animatorTest'
-        animator = Animator(butler, dataIds, pathToPngs, 'testAnimation.mp4',
-                            remakePngs=True, debug=False, clobberVideoAndGif=True)
-        animator.run()
-
-    else:
-        skipTypes = ['BIAS', 'DARK', 'FLAT']
         days = ['2020-02-17', '2020-02-18', '2020-02-19', '2020-02-20', '2020-02-21',
                 '2020-03-12', '2020-03-13', '2020-03-14', '2020-03-15', '2020-03-16']
         dataIds = []
@@ -287,11 +309,6 @@ if __name__ == '__main__':
                                 'filter': filt,
                                 'grating': grating,
                                 'imageType': imageType})
-
-        def isOnSky(dataId):
-            if dataId['imageType'] not in skipTypes:
-                return True
-            return False
 
         scienceIds = [x for x in filter(isOnSky, dataIds)]
 
@@ -310,4 +327,29 @@ if __name__ == '__main__':
                             debug=False,
                             clobberVideoAndGif=True,
                             plotObjectCentroids=False)
+        animator.run()
+    else:
+        # skipTypes = []
+        dayObs = '2021-02-17'
+        seqNums = range(100, 475+1)
+
+        toUse = []
+
+        for seqNum in seqNums:
+            imageType = butler.queryMetadata('raw', 'imageType', dayObs=dayObs, seqNum=seqNum)[0]
+            if imageType in skipTypes:
+                print(f"Skipping {seqNum} because it is a {imageType}")
+                continue
+            if butler.datasetExists(dataProcuctToPlot, dayObs=dayObs, seqNum=seqNum):
+                toUse.append({'dayObs': dayObs, 'seqNum': seqNum})
+
+        print(f'{len(toUse)} with {dataProcuctToPlot}')
+
+        animator = Animator(butler, toUse, outputPath, outputFilename,
+                            dataProcuctToPlot=dataProcuctToPlot,
+                            remakePngs=False,
+                            debug=False,
+                            clobberVideoAndGif=True,
+                            plotObjectCentroids=True,
+                            useQfmForCentroids=True)
         animator.run()
