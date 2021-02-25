@@ -66,7 +66,7 @@ class ImageSorter():
     def _getDataIdFromFilename(filename):
         # filename of the form 2021-02-18-705-quickLookExp.png
         filename = os.path.basename(filename)
-        mat = re.match(r'^(\d{4}-\d{2}-\d{2})-(\d+?)-.*$', filename)
+        mat = re.match(r'^(\d{4}-\d{2}-\d{2})-(\d*)-.*$', filename)
         if not mat:
             raise RuntimeError(f"Failed to extract dayObs/seqNum from {filename}")
         dayObs = mat.group(1)
