@@ -24,6 +24,8 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import os
 from os import system
+import re
+
 
 TIPS = """
 G - Good centroid
@@ -62,10 +64,13 @@ class ImageSorter():
 
     @staticmethod
     def _getDataIdFromFilename(filename):
-        dayIndex = filename.index('dayObs-') + len('dayObs-')
-        dayObs = filename[dayIndex:dayIndex + 10]  # YYYY-MM-DD == len 10
-        seqIndex = filename.index('seqNum-') + len('seqNum-')
-        seqNum = int(filename[seqIndex:].split('-')[0])
+        # filename of the form 2021-02-18-705-quickLookExp.png
+        filename = os.path.basename(filename)
+        mat = re.match(r'^(\d{4}-\d{2}-\d{2})-(\d+?)-.*$', filename)
+        if not mat:
+            raise RuntimeError(f"Failed to extract dayObs/seqNum from {filename}")
+        dayObs = mat.group(1)
+        seqNum = int(mat.group(2))
         return (dayObs, seqNum)
 
     def getPreviousAnnotation(self, info, imNum):
@@ -180,7 +185,7 @@ class ImageSorter():
             with Image.open(filename) as pilImage:
                 pilImage = Image.open(filename)
                 width, height = pilImage.size
-                cropLR, cropUD = 100, 180
+                cropLR, cropUD = 100-50, 180-50
                 cropped = pilImage.crop((cropLR, cropUD, width-cropLR, height-cropUD))
                 plt.clf()
                 plt.imshow(cropped, interpolation="bicubic")
