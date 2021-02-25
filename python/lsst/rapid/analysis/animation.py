@@ -71,7 +71,7 @@ class Animator():
     @staticmethod
     def _strDataId(dataId):
         if 'dayObs' in dataId and 'seqNum' in dataId:  # nicely ordered if easy
-            return f"{dataId['dayObs']}-{dataId['seqNum']:03d}"
+            return f"{dataId['dayObs']}-{dataId['seqNum']:05d}"
 
         # General case (and yeah, I should probably learn regex someday)
         dIdStr = str(dataId)
