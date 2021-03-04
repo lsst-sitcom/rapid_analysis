@@ -21,25 +21,19 @@
 # see <https://www.lsstcorp.org/LegalNotices/>.
 #
 
-__all__ = ['SummarizeImage', 'SummarizeImageTaskConfig']
+__all__ = ['SummarizeImage']
 
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.offsetbox import AnchoredText
+from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 from scipy.optimize import curve_fit
-
-import lsst.geom as geom
-import lsst.pex.config as pexConfig
-import lsst.pipe.base as pipeBase
 
 from lsst.atmospec.processStar import ProcessStarTask
 from lsst.pipe.tasks.quickFrameMeasurement import QuickFrameMeasurementTask, QuickFrameMeasurementTaskConfig
 
-
-# class SummarizeImageTaskConfig(pexConfig.Config):
-
-#     def setDefaults(self):
-#         return
+from lsst.obs.lsst.translators.lsst import FILTER_DELIMITER
+from astro_metadata_translator import ObservationInfo
 
 
 class SummarizeImage():
@@ -84,11 +78,10 @@ class SummarizeImage():
 
     @staticmethod
     def bboxToAwfDisplayLines(box):
-        """Takes a bbox, returns a list of lines such that they can be plotted with
+        """Takes a bbox, returns a list of lines such that they can be plotted:
 
         for line in lines:
             display.line(line, ctype='red')
-
         """
         x0 = box.beginX
         x1 = box.endX
@@ -165,16 +158,19 @@ class SummarizeImage():
         parameters[:, 2] = np.abs(parameters[:, 2])
         self.parameters = parameters
 
-    def plot(self):
+    def plot(self, saveAs=None):
         fig = plt.figure(figsize=(10, 10))
 
         # spectrum
         ax0 = plt.subplot2grid((4, 4), (0, 0), colspan=3)
+        ax0.tick_params(axis='x', top=True, bottom=False, labeltop=True, labelbottom=False)
         d = self.spectrumData[self.goodSlice].T
         vmin = np.percentile(d, 1)
         vmax = np.percentile(d, 99)
         pos = ax0.imshow(self.spectrumData[self.goodSlice].T, vmin=vmin, vmax=vmax, origin='lower')
-        # fig.colorbar(pos, ax=ax0, orientation="horizontal")
+        div = make_axes_locatable(ax0)
+        cax = div.append_axes("bottom", size="7%", pad="8%")
+        fig.colorbar(pos, cax=cax, orientation="horizontal", label="Counts")
 
         # spectrum histogram
         axHist = plt.subplot2grid((4, 4), (0, 3))
@@ -185,89 +181,145 @@ class SummarizeImage():
         underflow = len(data[data < histMin])
         overflow = len(data[data > histMax])
         axHist.set_yscale('log', nonpositive='clip')
+        axHist.set_title('Spectrum pixel histogram')
         text = f"Underflow = {underflow}"
         text += f"\nOverflow = {overflow}"
-        anchored_text = AnchoredText(text, loc=1, pad=1)
+        anchored_text = AnchoredText(text, loc=1, pad=0.5)
         axHist.add_artist(anchored_text)
 
         # peak fluxes
         ax1 = plt.subplot2grid((4, 4), (1, 0), colspan=3)
         ax1.plot(self.ridgeLineValues[self.goodSlice], label='Raw peak value')
         ax1.plot(self.parameters[:, 0], label='Fitted amplitude')
-#         continuumFlux = np.nanpercentile(self.parameters[:, 0], 99.5)
         ax1.axhline(self.continuumFlux98, ls='dashed', color='g')
-#         ymax = np.max(np.nanpercentile(self.parameters[:, 0], 90)*1.5)
-#         ax1.set_ylim(0, )
         ax1.set_ylabel('Peak amplitude (ADU)')
         ax1.set_xlabel('Spectrum position (pixels)')
-        ax1.legend(title=f"Continuum flux = {self.continuumFlux98:.0f} ADU")
+        ax1.legend(title=f"Continuum flux = {self.continuumFlux98:.0f} ADU",
+                   loc="center right", framealpha=0.2, facecolor="black")
         ax1.set_title('Ridgeline plot')
 
         # FWHM
         ax2 = plt.subplot2grid((4, 4), (2, 0), colspan=3)
-        ax2.plot(self.parameters[:, 2]*2.355)
+        ax2.plot(self.parameters[:, 2]*2.355, label="FWHM (pix)")
         fwhmValues = self.parameters[:, 2]*2.355
         median_fwhm = np.nanmedian(fwhmValues)
         ax2.axhline(median_fwhm, ls='dashed', color='k')
-        ymin = max(np.nanmin(fwhmValues)-3, 0)
-        ax2.set_ylim(ymin, np.nanpercentile(fwhmValues, 90)*1.5)
+        ymin = max(np.nanmin(fwhmValues)-5, 0)
+        ymax = median_fwhm*1.5
+        ax2.set_ylim(ymin, ymax)
         ax2.set_ylabel('FWHM (pixels)')
         ax2.set_xlabel('Spectrum position (pixels)')
-        ax2.legend(title=f"Median FWHM = {median_fwhm:.1f} pix")
+        ax2.legend(title=f"Median FWHM = {median_fwhm:.1f} pix", loc="upper right",
+                   framealpha=0.2, facecolor="black")
         ax2.set_title('Spectrum FWHM')
 
         # row fluxes
         ax3 = plt.subplot2grid((4, 4), (3, 0), colspan=3)
-        ax3.plot(self.rowSums[self.goodSlice])
+        ax3.plot(self.rowSums[self.goodSlice], label="Sum across row")
         ax3.set_ylabel('Total row flux (ADU)')
         ax3.set_xlabel('Spectrum position (pixels)')
-        ax3.legend()
+        ax3.legend(framealpha=0.2, facecolor="black")
         ax3.set_title('Row sums')
 
-        # textbox
-        ax4 = plt.subplot2grid((4, 4), (1, 3), rowspan=3)
-        text = "\n".join([line for line in self.text])
-        stats_text = AnchoredText(text, loc=1, pad=1)
+        # textbox top
+#         ax4 = plt.subplot2grid((4, 4), (1, 3))
+        ax4 = plt.subplot2grid((4, 4), (1, 3), rowspan=2)
+        text = "short text"
+        text = self.generateStatsTextboxContent(0)
+        text += self.generateStatsTextboxContent(1)
+        text += self.generateStatsTextboxContent(2)
+        text += self.generateStatsTextboxContent(3)
+        stats_text = AnchoredText(text, loc="center", pad=0.5,
+                                  prop=dict(size=10.5, ma="left", backgroundcolor="white",
+                                            color="black", family='monospace'))
         ax4.add_artist(stats_text)
+        ax4.axis('off')
+
+        # textbox middle
+        if self.debug:
+            ax5 = plt.subplot2grid((4, 4), (2, 3))
+            text = self.generateStatsTextboxContent(-1)
+            stats_text = AnchoredText(text, loc="center", pad=0.5,
+                                      prop=dict(size=10.5, ma="left", backgroundcolor="white",
+                                                color="black", family='monospace'))
+            ax5.add_artist(stats_text)
+            ax5.axis('off')
 
         plt.tight_layout()
         plt.show()
 
+        if saveAs:
+            fig.savefig(saveAs)
+
     def init(self):
         pass
 
-    def generateStatsText(self, doPrint=True):
+    def generateStatsTextboxContent(self, section, doPrint=True):
         x, y = self.qfmResult.brightestObjCentroid
         exptime = self.exp.getInfo().getVisitInfo().getExposureTime()
 
+        info = self.exp.getInfo()
+        vi = info.getVisitInfo()
+
+        fullFilterString = info.getFilterLabel().physicalLabel
+        filt = fullFilterString.split(FILTER_DELIMITER)[0]
+        grating = fullFilterString.split(FILTER_DELIMITER)[1]
+
+        airmass = vi.getBoresightAirmass()
+        rotangle = vi.getBoresightRotAngle().asDegrees()
+
+        azAlt = vi.getBoresightAzAlt()
+        az = azAlt[0].asDegrees()
+        el = azAlt[1].asDegrees()
+
+        md = self.exp.getMetadata()
+        obsInfo = ObservationInfo(md, subset={'object'})
+        obj = obsInfo.object
+
         lines = []
 
-        lines.append("-----Star stats-----")
-        lines.append(f"Star centroid @ ({x:.1f}, {y:.1f})")
-        lines.append(f"Star max pixel flux = {self.starPeakFlux:,.0f} ADU")
-        lines.append(f"Star Ap25 flux = {self.qfmResult.brightestObjApFlux25:,.0f} ADU")
-        lines.append("")
+        if section == 0:
+            lines.append("----- Star stats -----")
+            lines.append(f"Star centroid @  {x:.0f}, {y:.0f}")
+            lines.append(f"Star max pixel = {self.starPeakFlux:,.0f} ADU")
+            lines.append(f"Star Ap25 flux = {self.qfmResult.brightestObjApFlux25:,.0f} ADU")
+            lines.extend(["", ""])  # section break
+            return '\n'.join([line for line in lines])
 
-        lines.append("-----Image stats-----")
-        imageMedian = np.median(self.exp.image.array)
-        lines.append(f"Image median = {imageMedian:.2f} ADU")
-        lines.append(f"Exposure time = {exptime:.2f} s")
-        lines.append("")
+        if section == 1:
+            lines.append("------ Image stats ---------")
+            imageMedian = np.median(self.exp.image.array)
+            lines.append(f"Image median   = {imageMedian:.2f} ADU")
+            lines.append(f"Exposure time  = {exptime:.2f} s")
+            lines.extend(["", ""])  # section break
+            return '\n'.join([line for line in lines])
 
-        lines.append("-----Rate stats-----")
-        lines.append(f"Star max pixel = {self.starPeakFlux/exptime:,.0f} ADU/s")
-        lines.append(f"Spectrum contiuum = {self.continuumFlux98/exptime:,.1f} ADU/s")
-        lines.append("")
+        if section == 2:
+            lines.append("------- Rate stats ---------")
+            lines.append(f"Star max pixel    = {self.starPeakFlux/exptime:,.0f} ADU/s")
+            lines.append(f"Spectrum contiuum = {self.continuumFlux98/exptime:,.1f} ADU/s")
+            lines.extend(["", ""])  # section break
+            return '\n'.join([line for line in lines])
 
-        if self.debug:
-            lines.append("-----Debug-----")
+        if section == 3:
+            lines.append("----- Observation info -----")
+            lines.append(f"object  = {obj}")
+            lines.append(f"filter  = {filt}")
+            lines.append(f"grating = {grating}")
+            lines.append(f"rotpa   = {rotangle:.1f}")
+
+            lines.append(f"az      = {az:.1f}")
+            lines.append(f"el      = {el:.1f}")
+            lines.append(f"airmass = {airmass:.3f}")
+            return '\n'.join([line for line in lines])
+
+        if section == -1:  # special -1 for debug
+            lines.append("---------- Debug -----------")
             lines.append(f"spectrum bbox: {self.spectrumbbox}")
             lines.append(f"Good range = {self.goodSpectrumMinY},{self.goodSpectrumMaxY}")
+            return '\n'.join([line for line in lines])
 
-        if doPrint:
-            for line in lines:
-                print(line)
-        return lines
+        return
 
     def run(self):
         self.qfmResult = self.qfmTask.run(self.exp)
@@ -294,7 +346,5 @@ class SummarizeImage():
         self.continuumFlux98 = np.percentile(self.ridgeLineValues, 98)  # for most stars
 
         self.fit()
-        self.text = self.generateStatsText()
-        self.plot()
 
         return
