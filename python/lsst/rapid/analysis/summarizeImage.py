@@ -64,21 +64,6 @@ class SummarizeImage():
 
         self.init()
 
-    # def runDataRef(self, dataRef):
-    #     """Run the ProcessStarTask on a ButlerDataRef for a single exposure.
-
-    #     Runs isr to get the postISR exposure from the dataRef and passes this
-    #     to the run() method.
-
-    #     Parameters
-    #     ----------
-    #     dataRef : `daf.persistence.butlerSubset.ButlerDataRef`
-    #         Butler reference of the detector and exposure ID
-    #     """
-    #     butler = dataRef.getButler()
-    #     dataId = dataRef.dataId
-    #     self.log.info("Processing %s" % (dataRef.dataId))
-
     @staticmethod
     def bboxToAwfDisplayLines(box):
         """Takes a bbox, returns a list of lines such that they can be plotted:
