@@ -33,6 +33,7 @@ from lsst.atmospec.processStar import ProcessStarTask
 from lsst.pipe.tasks.quickFrameMeasurement import QuickFrameMeasurementTask, QuickFrameMeasurementTaskConfig
 
 from lsst.obs.lsst.translators.lsst import FILTER_DELIMITER
+from lsst.rapid.analysis.utils import getImageStats
 from astro_metadata_translator import ObservationInfo
 
 
@@ -58,6 +59,8 @@ class SummarizeImage():
         pstConfig = ProcessStarTask.ConfigClass()
         pstConfig.offsetFromMainStar = 400
         self.processStarTask = ProcessStarTask(config=pstConfig)
+
+        self.imStats = getImageStats(exp)
 
         self.init()
 
