@@ -24,6 +24,78 @@ __all__ = ['makePolarPlot', 'detectObjectsInExp']
 import matplotlib.pyplot as plt
 import numpy as np
 import lsst.afw.detection as afwDetect
+import lsst.afw.math as afwMath
+import lsst.pipe.base as pipeBase
+
+from lsst.obs.lsst.translators.lsst import FILTER_DELIMITER
+from astro_metadata_translator import ObservationInfo
+
+
+def countPixels(maskedImage, maskPlane):
+    bit = maskedImage.mask.getPlaneBitMask(maskPlane)
+    return len(np.where(np.bitwise_and(maskedImage.mask.array, bit))[0])
+
+
+def argMax2d(array):
+    """Get the index of the max value of an array.
+
+    Actually for n dimensional, but easier to recall method if misnamed."""
+    return np.unravel_index(np.argmax(array, axis=None), array.shape)
+
+
+def getImageStats(exp):
+    result = pipeBase.Struct()
+
+    info = exp.getInfo()
+    vi = info.getVisitInfo()
+    expTime = vi.getExposureTime()
+    md = exp.getMetadata()
+    obsInfo = ObservationInfo(md, subset={'object'})
+
+    obj = obsInfo.object
+    mjd = vi.getDate().get()
+    result.object = obj
+    result.mjd = mjd
+
+    fullFilterString = info.getFilterLabel().physicalLabel
+    filt = fullFilterString.split(FILTER_DELIMITER)[0]
+    grating = fullFilterString.split(FILTER_DELIMITER)[1]
+
+    airmass = vi.getBoresightAirmass()
+    rotangle = vi.getBoresightRotAngle().asDegrees()
+
+    azAlt = vi.getBoresightAzAlt()
+    az = azAlt[0].asDegrees()
+    el = azAlt[1].asDegrees()
+
+    result.expTime = expTime
+    result.filter = filt
+    result.grating = grating
+    result.airmass = airmass
+    result.rotangle = rotangle
+    result.az = az
+    result.el = el
+
+    data = exp.image.array
+    result.maxValue = np.max(data)
+    result.maxPixelLocation = argMax2d(data)
+    result.nBadPixels = countPixels(exp.maskedImage, 'BAD')
+    result.nSatPixels = countPixels(exp.maskedImage, 'SAT')
+    result.percentile99 = np.percentile(data, 99)
+    result.percentile9999 = np.percentile(data, 99.99)
+
+    sctrl = afwMath.StatisticsControl()
+    sctrl.setNumSigmaClip(5)
+    sctrl.setNumIter(2)
+    statTypes = afwMath.MEANCLIP | afwMath.STDEVCLIP
+    stats = afwMath.makeStatistics(exp.maskedImage, statTypes, sctrl)
+    std, stderr = stats.getResult(afwMath.STDEVCLIP)
+    mean, meanerr = stats.getResult(afwMath.MEANCLIP)
+
+    result.clippedMean = mean
+    result.clippedStddev = std
+
+    return result
 
 
 def detectObjectsInExp(exp, nSigma=10, nPixMin=10, grow=0):
