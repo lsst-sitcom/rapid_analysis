@@ -104,6 +104,19 @@ class ImageExaminer():
     def getStats(self):
         return self.imStats
 
+    @staticmethod
+    def _calcMaxBoxHalfSize(centroid, chipBbox):
+        """Calc the minimum distance between the centroid and chip edge."""
+        ll = chipBbox.getBeginX()
+        r = chipBbox.getEndX()
+        d = chipBbox.getBeginY()
+        u = chipBbox.getEndY()
+
+        x, y = np.array(centroid, dtype=int)
+        maxSize = np.min([(x-ll), (r-x-1), (u-y-1), (y-d)])  # extar -1 in x because [)
+        assert maxSize >= 0, "Box calculation went wrong"
+        return maxSize
+
     def _calcBbox(self, centroid):
         centroidPoint = geom.Point2I(centroid)
         extent = geom.Extent2I(1, 1)
@@ -113,7 +126,8 @@ class ImageExaminer():
         if bbox.getDimensions()[0] != bbox.getDimensions()[1]:
             # TODO: one day support clipped, nonsquare regions
             # but it's nontrivial due to all the plotting options
-            maxsize = np.min(centroid)
+
+            maxsize = self._calcMaxBoxHalfSize(centroid, self.exp.getBBox())
             msg = (f"With centroid at {centroid} and boxHalfSize {self.boxHalfSize} "
                    "the selection runs off the edge of the chip. Boxsize has been "
                    f"automatically shrunk to {maxsize} (only square selections are "
