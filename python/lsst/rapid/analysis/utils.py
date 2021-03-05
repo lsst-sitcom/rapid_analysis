@@ -37,10 +37,31 @@ def countPixels(maskedImage, maskPlane):
 
 
 def argMax2d(array):
-    """Get the index of the max value of an array.
+    """Get the index of the max value of an array and whether it's unique.
 
-    Actually for n dimensional, but easier to recall method if misnamed."""
-    return np.unravel_index(np.argmax(array, axis=None), array.shape)
+    If its not unique, returns a list of the other locations containing the
+    maximum value, e.g. returns
+
+    (12, 34), False, [(56,78), (910, 1112)]
+
+    Returns
+    -------
+    maxLocation : `tuple`
+        The coords of the first instance of the max value
+
+    unique : `bool`
+        Whether it's the only location
+
+    otherLocations : `list` of `tuple`
+        List of the other max values' locations, empty if False
+    """
+    uniqueMaximum = False
+    maxCoords = np.where(array == np.max(array))
+    maxCoords = [coord for coord in zip(*maxCoords)]  # list of coords as tuples
+    if len(maxCoords) == 1:  # single unambiguous value
+        uniqueMaximum = True
+
+    return maxCoords[0], uniqueMaximum, maxCoords[1:]
 
 
 def getImageStats(exp):
@@ -78,7 +99,11 @@ def getImageStats(exp):
 
     data = exp.image.array
     result.maxValue = np.max(data)
-    result.maxPixelLocation = argMax2d(data)
+
+    peak, uniquePeak, otherPeaks = argMax2d(data)
+    result.maxPixelLocation = peak
+    result.multipleMaxPixels = uniquePeak
+
     result.nBadPixels = countPixels(exp.maskedImage, 'BAD')
     result.nSatPixels = countPixels(exp.maskedImage, 'SAT')
     result.percentile99 = np.percentile(data, 99)
