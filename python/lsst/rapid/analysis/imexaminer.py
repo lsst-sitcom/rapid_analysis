@@ -58,8 +58,11 @@ class ImageExaminer():
             qfmTaskConfig = QuickFrameMeasurementTaskConfig()
             qfmTask = QuickFrameMeasurementTask(config=qfmTaskConfig)
             result = qfmTask.run(exp)
+            if not result.success:
+                msg = ("Failed to automatically find source in image. "
+                       "Either provide a centroid manually or use a new image")
+                raise RuntimeError(msg)
             self.centroid = result.brightestObjCentroid
-            self.centroid = (self.centroid[0], self.centroid[1])  # XXX REMOVE THIS!!!
         else:
             self.centroid = centroid
 
