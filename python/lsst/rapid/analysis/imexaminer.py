@@ -26,6 +26,7 @@ __all__ = ['ImageExaminer']
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy.linalg import norm
+import scipy.ndimage as ndIm
 
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator
@@ -35,7 +36,7 @@ from matplotlib.offsetbox import AnchoredText
 import lsst.geom as geom
 from scipy.optimize import curve_fit
 from lsst.pipe.tasks.quickFrameMeasurement import QuickFrameMeasurementTask, QuickFrameMeasurementTaskConfig
-from lsst.rapid.analysis.utils import getImageStats, argMax2d
+from lsst.rapid.analysis.utils import getImageStats, argMax2d, countPixels
 
 
 def gauss(x, a, x0, sigma):
@@ -73,7 +74,7 @@ class ImageExaminer():
         self.imStats.centroid = self.centroid
         self.imStats.intCentroid = self.intCoords(self.centroid)
         self.imStats.intCentroidRounded = self.intRoundCoords(self.centroid)
-        self.imStats.maxPixel = argMax2d(self.data)
+        self.imStats.nStatPixInBox = self.nSatPixInBox
 
     def intCoords(self, coords):
         return np.asarray(coords, dtype=int)
@@ -82,7 +83,16 @@ class ImageExaminer():
         return (int(round(coords[0])), int(round(coords[1])))
 
     def tweakCentroid(self):
-        offset = np.asarray(argMax2d(self.data)) - np.array((self.boxHalfSize, self.boxHalfSize))
+        peak, uniquePeak, otherPeaks = argMax2d(self.data)
+        # saturated stars don't tend to have ambiguous max pixels
+        # due to the bunny ears left after interpolation
+        nSatPix = self.nSatPixInBox
+
+        if not uniquePeak or nSatPix:
+            print('Found multiple max pixels or star is saturated, usign CoM for centroid')
+            peak = ndIm.center_of_mass(self.data)
+
+        offset = np.asarray(peak) - np.array((self.boxHalfSize, self.boxHalfSize))
         print(f"Centroid adjusted by {offset} pixels")
         x = self.centroid[0] + offset[1]  # yes, really, centroid is x,y offset is y,x
         y = self.centroid[1] + offset[0]
@@ -102,6 +112,8 @@ class ImageExaminer():
 
     def getStarBoxData(self):
         bbox = self._calcBbox(self.centroid)
+        self.starBbox = bbox  # needed elsewhere, so always set when calculated
+        self.nSatPixInBox = countPixels(self.exp.maskedImage[self.starBbox], 'SAT')
         return self.exp.image[bbox].array
 
     def getMeshGrid(self, data):
@@ -154,7 +166,7 @@ class ImageExaminer():
             fitline = gauss(distances, *pars)
             ax.plot(distances, fitline, label="Gaussian fit")
 
-        ax.set_aspect(1.0/ax.get_data_ratio(), adjustable='box') # equal aspect for non-images
+        ax.set_aspect(1.0/ax.get_data_ratio(), adjustable='box')  # equal aspect for non-images
         ax.legend()
 
         if plotDirect:
@@ -251,7 +263,7 @@ class ImageExaminer():
             pass
             # TODO: set yscale as log here also protect against negatives
 
-        ax.set_aspect(1.0/ax.get_data_ratio(), adjustable='box') # equal aspect for non-images
+        ax.set_aspect(1.0/ax.get_data_ratio(), adjustable='box')  # equal aspect for non-images
 
         ax.legend()
         if plotDirect:
