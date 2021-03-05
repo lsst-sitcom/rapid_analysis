@@ -109,8 +109,19 @@ class ImageExaminer():
         extent = geom.Extent2I(1, 1)
         bbox = geom.Box2I(centroidPoint, extent)
         bbox = bbox.dilatedBy(self.boxHalfSize)
+        bbox = bbox.clippedTo(self.exp.getBBox())
         if bbox.getDimensions()[0] != bbox.getDimensions()[1]:
-            print("\n\n!!!!\nUNSQUARE BBOX - let's see what happens!\n!!!!\n\n")
+            # TODO: one day support clipped, nonsquare regions
+            # but it's nontrivial due to all the plotting options
+            maxsize = np.min(centroid)
+            msg = (f"With centroid at {centroid} and boxHalfSize {self.boxHalfSize} "
+                   "the selection runs off the edge of the chip. Boxsize has been "
+                   f"automatically shrunk to {maxsize} (only square selections are "
+                   "currently supported)")
+            print(msg)
+            self.boxHalfSize = maxsize
+            return self._calcBbox(centroid)
+
         return bbox
 
     def getStarBoxData(self):
