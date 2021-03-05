@@ -84,8 +84,8 @@ class ImageExaminer():
     def tweakCentroid(self):
         offset = np.asarray(argMax2d(self.data)) - np.array((self.boxHalfSize, self.boxHalfSize))
         print(f"Centroid adjusted by {offset} pixels")
-        x = self.centroid[0] + offset[0]
-        y = self.centroid[1] + offset[1]
+        x = self.centroid[0] + offset[1]  # yes, really, centroid is x,y offset is y,x
+        y = self.centroid[1] + offset[0]
         self.centroid = (x, y)
 
     def getStats(self):
@@ -154,7 +154,7 @@ class ImageExaminer():
             fitline = gauss(distances, *pars)
             ax.plot(distances, fitline, label="Gaussian fit")
 
-        ax.set_aspect(1.0/ax.get_data_ratio(), adjustable='box')
+        ax.set_aspect(1.0/ax.get_data_ratio(), adjustable='box') # equal aspect for non-images
         ax.legend()
 
         if plotDirect:
@@ -251,7 +251,7 @@ class ImageExaminer():
             pass
             # TODO: set yscale as log here also protect against negatives
 
-        ax.set_aspect(1.0/ax.get_data_ratio(), adjustable='box')
+        ax.set_aspect(1.0/ax.get_data_ratio(), adjustable='box') # equal aspect for non-images
 
         ax.legend()
         if plotDirect:
