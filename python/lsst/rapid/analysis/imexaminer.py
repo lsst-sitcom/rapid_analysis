@@ -350,6 +350,9 @@ class ImageExaminer():
         print(lines)
 
         plt.tight_layout()
+        if self.savePlots:
+            print(f'Plot saved to {self.savePlots}')
+            fig.savefig(self.savePlots)
         plt.show()
 
     def plotAll(self):
