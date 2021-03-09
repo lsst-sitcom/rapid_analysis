@@ -252,6 +252,11 @@ class ImageExaminer():
             ax.imshow(self.data, origin='lower')
         ax.tick_params(which="major", direction="in", top=True, right=True, labelsize=8)
 
+        xlen, ylen = self.data.shape
+        center = np.array([xlen/2, ylen/2])
+        ax.plot(*center, 'r+', markersize=10)
+        ax.plot(*center, 'rx', markersize=10)
+
         if plotDirect:
             plt.show()
 
@@ -268,6 +273,11 @@ class ImageExaminer():
         ax.imshow(self.exp.image.array, norm=LogNorm(vmin=vmin, vmax=vmax),
                   origin='lower', cmap='gray',)
         ax.tick_params(which="major", direction="in", top=True, right=True, labelsize=8)
+
+        xy0 = self.starBbox.getCorners()[0].x, self.starBbox.getCorners()[0].y
+        width, height = self.starBbox.getWidth(), self.starBbox.getHeight()
+        rect = patches.Rectangle(xy0, width, height, linewidth=1, edgecolor='r', facecolor='none')
+        ax.add_patch(rect)
 
         if plotDirect:
             plt.show()
