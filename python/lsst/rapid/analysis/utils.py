@@ -31,6 +31,10 @@ from lsst.obs.lsst.translators.lsst import FILTER_DELIMITER
 from astro_metadata_translator import ObservationInfo
 
 
+SIGMATOFWHM = 2.0*np.sqrt(2.0*np.log(2.0))
+FWHMTOSIGMA = 1/SIGMATOFWHM
+
+
 def countPixels(maskedImage, maskPlane):
     bit = maskedImage.mask.getPlaneBitMask(maskPlane)
     return len(np.where(np.bitwise_and(maskedImage.mask.array, bit))[0])
