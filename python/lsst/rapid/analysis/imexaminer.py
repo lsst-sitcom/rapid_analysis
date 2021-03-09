@@ -32,11 +32,15 @@ from matplotlib import cm
 from matplotlib.ticker import LinearLocator
 from matplotlib.colors import LogNorm
 from matplotlib.offsetbox import AnchoredText
+import matplotlib.patches as patches
 
 import lsst.geom as geom
 from scipy.optimize import curve_fit
 from lsst.pipe.tasks.quickFrameMeasurement import QuickFrameMeasurementTask, QuickFrameMeasurementTaskConfig
 from lsst.rapid.analysis.utils import getImageStats, argMax2d, countPixels
+
+
+SIGMATOFWHM = 2.0*np.sqrt(2.0*np.log(2.0))
 
 
 def gauss(x, a, x0, sigma):
@@ -151,7 +155,7 @@ class ImageExaminer():
         xx, yy = np.meshgrid(xx, yy)
         return xx, yy
 
-    def radialAverage(self):
+    def radialAverageAndFit(self):
         xlen, ylen = self.data.shape
         center = np.array([xlen/2, ylen/2])
         # TODO: add option to move centroid to max pixel for radial (argmax 2d)
@@ -168,15 +172,6 @@ class ImageExaminer():
                     continue  # clip to box size, we don't need a factor of sqrt(2) extra
                 values.append(value)
                 distances.append(dist)
-        return distances, values
-
-    def plotRadialAverage(self, ax=None):
-        plotDirect = False
-        if not ax:
-            ax = plt.subplot(111)
-            plotDirect = True
-
-        distances, values = self.radialAverage()
 
         peakPos = 0
         amplitude = np.max(values)
@@ -189,8 +184,27 @@ class ImageExaminer():
         except RuntimeError:
             pars = None
 
+        self.imStats.fitAmp = pars[0]
+        self.imStats.fitMean = pars[1]
+        self.imStats.fitFwhm = pars[2] * SIGMATOFWHM
+
+        return distances, values
+
+    def plotRadialAverage(self, ax=None):
+        plotDirect = False
+        if not ax:
+            ax = plt.subplot(111)
+            plotDirect = True
+
+        distances, values = self.radialAverageAndFit()  # fit vals put in self.imStats
+        pars = (self.imStats.fitAmp,
+                self.imStats.fitMean,
+                self.imStats.fitFwhm / SIGMATOFWHM)
+
+        fitFailed = np.isnan(pars).any()
+
         ax.plot(distances, values, 'x', label='Radial average')
-        if pars is not None:
+        if not fitFailed:
             fitline = gauss(distances, *pars)
             ax.plot(distances, fitline, label="Gaussian fit")
 
