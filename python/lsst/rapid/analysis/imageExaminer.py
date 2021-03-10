@@ -26,7 +26,9 @@ __all__ = ['ImageExaminer']
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy.linalg import norm
-import scipy.ndimage as ndIm
+
+from scipy.ndimage.filters import gaussian_filter
+import scipy.ndimage as ndImage
 
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator
@@ -99,7 +101,7 @@ class ImageExaminer():
 
         if not uniquePeak or nSatPix:
             print('Found multiple max pixels or star is saturated, usign CoM for centroid')
-            peak = ndIm.center_of_mass(self.data)
+            peak = ndImage.center_of_mass(self.data)
 
         offset = np.asarray(peak) - np.array((self.boxHalfSize, self.boxHalfSize))
         print(f"Centroid adjusted by {offset} pixels")
@@ -156,6 +158,12 @@ class ImageExaminer():
         yy = np.arange(-1*ylen/2, ylen/2, 1)
         xx, yy = np.meshgrid(xx, yy)
         return xx, yy
+
+    @staticmethod
+    def quickSmooth(data, sigma=2):
+        kernel = [sigma, sigma]
+        smoothData = gaussian_filter(data, kernel, mode='constant')
+        return smoothData
 
     def radialAverageAndFit(self):
         xlen, ylen = self.data.shape
@@ -286,17 +294,17 @@ class ImageExaminer():
             plt.show()
 
     def plotFullExp(self, ax=None):
-        # TODO: display centroid in use
         plotDirect = False
         if not ax:
-            ax = plt.subplot(111)
+            fig = plt.figure(figsize=(10, 10))
+            ax = fig.add_subplot(111)
             plotDirect = True
 
-        imData = self.exp.image.array
-        vmin = np.percentile(imData, 1)
-        vmax = np.percentile(imData, 99)
-        ax.imshow(self.exp.image.array, norm=LogNorm(vmin=vmin, vmax=vmax),
-                  origin='lower', cmap='gray',)
+        imData = self.quickSmooth(self.exp.image.array, 2.5)
+        vmin = np.percentile(imData, 10)
+        vmax = np.percentile(imData, 99.9)
+        ax.imshow(imData, norm=LogNorm(vmin=vmin, vmax=vmax),
+                  origin='lower', cmap='gray_r',)
         ax.tick_params(which="major", direction="in", top=True, right=True, labelsize=8)
 
         xy0 = self.starBbox.getCorners()[0].x, self.starBbox.getCorners()[0].y
