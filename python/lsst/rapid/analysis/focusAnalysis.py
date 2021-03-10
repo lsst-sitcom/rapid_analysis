@@ -31,10 +31,16 @@ from dataclasses import dataclass
 
 import numpy as np
 from scipy.optimize import curve_fit
+from scipy.linalg import norm
 
 # TODO: change these back to local .imports
 from lsst.rapid.analysis.bestEffort import BestEffortIsr
+from lsst.rapid.analysis import ImageExaminer
+from lsst.rapid.analysis.utils import FWHMTOSIGMA, SIGMATOFWHM, isExpDispersed
 from lsst.pipe.tasks.quickFrameMeasurement import QuickFrameMeasurementTask, QuickFrameMeasurementTaskConfig
+
+
+__all__ = ["SpectralFocusAnalyzer", "NonSpectralFocusAnalyzer"]
 
 
 @dataclass
@@ -44,7 +50,7 @@ class FitResult:
     sigma: float
 
 
-class FocusAnalyzer():
+class SpectralFocusAnalyzer():
 
     def __init__(self, repoDir, **kwargs):
 
@@ -245,9 +251,112 @@ class FocusAnalyzer():
         return legendText
 
 
+class NonSpectralFocusAnalyzer():
+
+    def __init__(self, repoDir, **kwargs):
+        self._butler = dafPersist.Butler(repoDir)
+        self._bestEffort = BestEffortIsr(repoDir, **kwargs)
+
+    @staticmethod
+    def _getFocusFromHeader(exp):
+        return float(exp.getMetadata()["FOCUSZ"])
+
+    @staticmethod
+    def gauss(x, *pars):
+        amp, mean, sigma = pars
+        return amp*np.exp(-(x-mean)**2/(2.*sigma**2))
+
+    def run(self, dayObs, seqNums, manualCentroid=None, doDisplay=False, hideFit=False):
+        self.getFocusData(dayObs, seqNums, manualCentroid=manualCentroid, doDisplay=doDisplay)
+        bestFit = self.fitDataAndPlot(hideFit=hideFit)
+        return bestFit
+
+    def getFocusData(self, dayObs, seqNums, manualCentroid=None, doCheckDispersed=True,
+                     doDisplay=False):
+        fitData = {}
+        filters = set()
+        objects = set()
+
+        maxDistance = 200
+        firstCentroid = None
+
+        for seqNum in seqNums:
+            fitData[seqNum] = {}
+            butler = self._butler
+
+            if butler.datasetExists('quickLookExp', {'dayObs': dayObs, 'seqNum': seqNum}):
+                exp = butler.get('quickLookExp', {'dayObs': dayObs, 'seqNum': seqNum})
+            else:
+                print(f"quickLookExp not found for {seqNum}, reproducing...")
+                exp = self._bestEffort.getExposure({'dayObs': dayObs, 'seqNum': seqNum})
+
+            # sanity/consistency checking
+            filt = exp.getFilterLabel().physicalLabel
+            obj = butler.queryMetadata('raw', 'object', dayObs=dayObs, seqNum=seqNum)[0]
+            objects.add(obj)
+            filters.add(filt)
+            if doCheckDispersed:
+                assert not isExpDispersed(exp), f"Image is dispersed! (filter = {filt})"
+            assert len(filters) == 1, "You accidentally mixed filters!"
+            assert len(objects) == 1, "You accidentally mixed objects!"
+
+            imExam = ImageExaminer(exp, centroid=manualCentroid, doTweakCentroid=True, boxHalfSize=105)
+            if doDisplay:
+                imExam.plot()
+
+            fwhm = imExam.imStats.fitFwhm
+            amp = imExam.imStats.fitAmp
+            gausMean = imExam.imStats.fitGausMean
+            centroid = imExam.centroid
+
+            if seqNum == seqNums[0]:
+                firstCentroid = centroid
+
+            dist = norm(np.array(centroid) - np.array(firstCentroid))
+            if dist > maxDistance:
+                print(f"Skipping {seqNum} because distance {dist}> maxDistance {maxDistance}")
+
+            fitData[seqNum]['fitResult'] = FitResult(amp=amp, mean=gausMean, sigma=fwhm*FWHMTOSIGMA)
+
+            focuserPosition = self._getFocusFromHeader(exp)
+            fitData[seqNum]['focus'] = focuserPosition
+
+        self.fitData = fitData
+        self.filter = filters.pop()
+        self.object = objects.pop()
+
+        return
+
+    def fitDataAndPlot(self, hideFit=False):
+
+        fitData = self.fitData
+
+        labelFontSize = 14
+
+        arcminToPixel = 10
+
+        seqNums = sorted(fitData.keys())
+        widths = [fitData[seqNum]['fitResult'].sigma * SIGMATOFWHM / arcminToPixel for seqNum in seqNums]
+        focusPositions = [fitData[seqNum]['focus'] for seqNum in seqNums]
+
+        quadFitPars = np.polyfit(focusPositions, widths, 2)
+        fitMin = -quadFitPars[1] / (2.0*quadFitPars[0])
+        fineXs = np.linspace(np.min(focusPositions), np.max(focusPositions), 101)
+
+        plt.scatter(focusPositions, widths, c='k')
+        plt.xlabel('User-applied focus offset (mm)', fontsize=labelFontSize)
+        plt.ylabel('FWHM (arcsec)', fontsize=labelFontSize)
+        plt.plot(fineXs, np.poly1d(quadFitPars)(fineXs), 'b-')
+        plt.axvline(fitMin, c='r', ls='--')
+        msg = f"Best focus offset = {np.round(fitMin, 2)}"
+        print(msg)
+
+        return fitMin
+
+
 if __name__ == '__main__':
     repoDir = '/project/shared/auxTel/'
-    analyzer = FocusAnalyzer(repoDir)
+    analyzer = SpectralFocusAnalyzer(repoDir)
     # dataId = {'dayObs': '2020-02-20', 'seqNum': 485}  # direct image
     dataId = {'dayObs': '2020-03-12'}
     seqNums = [121, 122]
