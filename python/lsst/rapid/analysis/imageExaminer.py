@@ -83,6 +83,8 @@ class ImageExaminer():
         self.imStats.intCentroidRounded = self.intRoundCoords(self.centroid)
         self.imStats.nStatPixInBox = self.nSatPixInBox
 
+        self.radialAverageAndFit()
+
     def intCoords(self, coords):
         return np.asarray(coords, dtype=int)
 
@@ -175,20 +177,28 @@ class ImageExaminer():
 
         peakPos = 0
         amplitude = np.max(values)
-        width = 5
+        width = 10
+
+        bounds = ((0, 0, 0), (np.inf, np.inf, np.inf))
 
         try:
-            pars, pCov = curve_fit(gauss, distances, values, [amplitude, peakPos, width])
+            pars, pCov = curve_fit(gauss, distances, values, [amplitude, peakPos, width], bounds=bounds)
             pars[0] = np.abs(pars[0])
             pars[2] = np.abs(pars[2])
         except RuntimeError:
             pars = None
+            self.imStats.fitAmp = np.nan
+            self.imStats.fitMean = np.nan
+            self.imStats.fitFwhm = np.nan
 
-        self.imStats.fitAmp = pars[0]
-        self.imStats.fitMean = pars[1]
-        self.imStats.fitFwhm = pars[2] * SIGMATOFWHM
+        if pars is not None:
+            self.imStats.fitAmp = pars[0]
+            self.imStats.fitGausMean = pars[1]
+            self.imStats.fitFwhm = pars[2] * SIGMATOFWHM
 
-        return distances, values
+        self.radialDistances = distances
+        self.radialValues = values
+        return
 
     def plotRadialAverage(self, ax=None):
         plotDirect = False
@@ -196,9 +206,10 @@ class ImageExaminer():
             ax = plt.subplot(111)
             plotDirect = True
 
-        distances, values = self.radialAverageAndFit()  # fit vals put in self.imStats
+        distances = self.radialDistances
+        values = self.radialValues
         pars = (self.imStats.fitAmp,
-                self.imStats.fitMean,
+                self.imStats.fitGausMean,
                 self.imStats.fitFwhm / SIGMATOFWHM)
 
         fitFailed = np.isnan(pars).any()
@@ -371,7 +382,6 @@ class ImageExaminer():
                 v = f"{v:,.1f}"
             lines.append(f"{k}: {v}")
         self.plotStats(axStats, lines)
-        print(lines)
 
         plt.tight_layout()
         if self.savePlots:
