@@ -26,6 +26,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from matplotlib.patches import Arrow, Rectangle, Circle
 import matplotlib.cm as cm
+from matplotlib import gridspec
 
 from dataclasses import dataclass
 
@@ -317,6 +318,9 @@ class NonSpectralFocusAnalyzer():
                 print(f"Skipping {seqNum} because distance {dist}> maxDistance {maxDistance}")
 
             fitData[seqNum]['fitResult'] = FitResult(amp=amp, mean=gausMean, sigma=fwhm*FWHMTOSIGMA)
+            fitData[seqNum]['eeRadius50'] = imExam.imStats.eeRadius50
+            fitData[seqNum]['eeRadius80'] = imExam.imStats.eeRadius80
+            fitData[seqNum]['eeRadius90'] = imExam.imStats.eeRadius90
 
             focuserPosition = self._getFocusFromHeader(exp)
             fitData[seqNum]['focus'] = focuserPosition
@@ -335,30 +339,66 @@ class NonSpectralFocusAnalyzer():
 
         arcminToPixel = 10
 
+        fig = plt.figure(figsize=(10, 10))  # noqa
+        gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1])
+
         seqNums = sorted(fitData.keys())
         widths = [fitData[seqNum]['fitResult'].sigma * SIGMATOFWHM / arcminToPixel for seqNum in seqNums]
         focusPositions = [fitData[seqNum]['focus'] for seqNum in seqNums]
-
-        quadFitPars = np.polyfit(focusPositions, widths, 2)
-        fitMin = -quadFitPars[1] / (2.0*quadFitPars[0])
         fineXs = np.linspace(np.min(focusPositions), np.max(focusPositions), 101)
 
-        plt.scatter(focusPositions, widths, c='k')
-        plt.xlabel('User-applied focus offset (mm)', fontsize=labelFontSize)
-        plt.ylabel('FWHM (arcsec)', fontsize=labelFontSize)
-        plt.plot(fineXs, np.poly1d(quadFitPars)(fineXs), 'b-')
-        plt.axvline(fitMin, c='r', ls='--')
-        msg = f"Best focus offset = {np.round(fitMin, 2)}"
-        print(msg)
+        fwhmFitPars = np.polyfit(focusPositions, widths, 2)
+        fwhmFitMin = -fwhmFitPars[1] / (2.0*fwhmFitPars[0])
 
-        return fitMin
+        ax0 = plt.subplot(gs[0])
+        ax0.scatter(focusPositions, widths, c='k')
+        ax0.set_ylabel('FWHM (arcsec)', fontsize=labelFontSize)
+        ax0.plot(fineXs, np.poly1d(fwhmFitPars)(fineXs), 'b-')
+        ax0.axvline(fwhmFitMin, c='r', ls='--')
 
+        ee90s = [fitData[seqNum]['eeRadius90'] for seqNum in seqNums]
+        ee80s = [fitData[seqNum]['eeRadius80'] for seqNum in seqNums]
+        ee50s = [fitData[seqNum]['eeRadius50'] for seqNum in seqNums]
+        ax1 = plt.subplot(gs[1], sharex=ax0)
+        ax1.scatter(focusPositions, ee90s, c='r', label='Encircled energy 90%')
+        ax1.scatter(focusPositions, ee80s, c='g', label='Encircled energy 80%')
+        ax1.scatter(focusPositions, ee50s, c='b', label='Encircled energy 50%')
 
-if __name__ == '__main__':
-    repoDir = '/project/shared/auxTel/'
-    analyzer = SpectralFocusAnalyzer(repoDir)
-    # dataId = {'dayObs': '2020-02-20', 'seqNum': 485}  # direct image
-    dataId = {'dayObs': '2020-03-12'}
-    seqNums = [121, 122]
-    data, filt, obj = analyzer.getFocusData(dataId['dayObs'], seqNums, doDisplay=True)
-    analyzer.fitDataAndPlot(data, filt, obj)
+        ee90FitPars = np.polyfit(focusPositions, ee90s, 2)
+        ee90FitMin = -ee90FitPars[1] / (2.0*ee90FitPars[0])
+        ee80FitPars = np.polyfit(focusPositions, ee80s, 2)
+        ee80FitMin = -ee80FitPars[1] / (2.0*ee80FitPars[0])
+        ee50FitPars = np.polyfit(focusPositions, ee50s, 2)
+        ee50FitMin = -ee50FitPars[1] / (2.0*ee50FitPars[0])
+
+        ax1.plot(fineXs, np.poly1d(ee90FitPars)(fineXs), 'r-')
+        ax1.plot(fineXs, np.poly1d(ee80FitPars)(fineXs), 'g-')
+        ax1.plot(fineXs, np.poly1d(ee50FitPars)(fineXs), 'b-')
+
+        ax1.axvline(ee90FitMin, c='r', ls='--')
+        ax1.axvline(ee80FitMin, c='g', ls='--')
+        ax1.axvline(ee50FitMin, c='b', ls='--')
+
+        ax1.set_xlabel('User-applied focus offset (mm)', fontsize=labelFontSize)
+        ax1.set_ylabel('Radius (pixels)', fontsize=labelFontSize)
+
+        ax1.legend()
+
+        plt.subplots_adjust(hspace=.0)
+        plt.show()
+
+        results = {"fwhmFitMin": fwhmFitMin,
+                   "ee90FitMin": ee90FitMin,
+                   "ee80FitMin": ee80FitMin,
+                   "ee50FitMin": ee50FitMin}
+
+        return results
+
+# if __name__ == '__main__':
+#     repoDir = '/project/shared/auxTel/'
+#     analyzer = SpectralFocusAnalyzer(repoDir)
+#     # dataId = {'dayObs': '2020-02-20', 'seqNum': 485}  # direct image
+#     dataId = {'dayObs': '2020-03-12'}
+#     seqNums = [121, 122]
+#     data, filt, obj = analyzer.getFocusData(dataId['dayObs'], seqNums, doDisplay=True)
+#     analyzer.fitDataAndPlot(data, filt, obj)
