@@ -53,7 +53,7 @@ class ImageExaminer():
     """Class for the reproducing the functionality of imexam.
     """
 
-    def __init__(self, exp, doTweakCentroid=True, savePlots=None, centroid=None, boxHalfSize=15):
+    def __init__(self, exp, doTweakCentroid=True, savePlots=None, centroid=None, boxHalfSize=50):
 
         self.exp = exp
         self.savePlots = savePlots
@@ -279,10 +279,11 @@ class ImageExaminer():
             ax = plt.subplot(111)
             plotDirect = True
 
+        interp = 'none'
         if logScale:
-            ax.imshow(self.data, norm=LogNorm(), origin='lower')
+            ax.imshow(self.data, norm=LogNorm(), origin='lower', interpolation=interp)
         else:
-            ax.imshow(self.data, origin='lower')
+            ax.imshow(self.data, origin='lower', interpolation=interp)
         ax.tick_params(which="major", direction="in", top=True, right=True, labelsize=8)
 
         xlen, ylen = self.data.shape
@@ -304,7 +305,7 @@ class ImageExaminer():
         vmin = np.percentile(imData, 10)
         vmax = np.percentile(imData, 99.9)
         ax.imshow(imData, norm=LogNorm(vmin=vmin, vmax=vmax),
-                  origin='lower', cmap='gray_r',)
+                  origin='lower', cmap='gray_r', interpolation='bicubic')
         ax.tick_params(which="major", direction="in", top=True, right=True, labelsize=8)
 
         xy0 = self.starBbox.getCorners()[0].x, self.starBbox.getCorners()[0].y
