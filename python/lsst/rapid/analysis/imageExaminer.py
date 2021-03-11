@@ -74,6 +74,9 @@ class ImageExaminer():
                      "clippedStddev": "Clipped stddev"}
 
     cutoutMappings = {"nStatPixInBox": "nSat in cutout",
+                      "fitAmp": "Radial fitted amp",
+                      "fitGausMean": "Radial fitted position",
+                      "fitFwhm": "Radial fitted FWHM",
                       "eeRadius50": "50% flux radius",
                       "eeRadius80": "80% flux radius",
                       "eeRadius90": "90% flux radius"}
@@ -272,6 +275,8 @@ class ImageExaminer():
             fitline = gauss(distances, *pars)
             ax.plot(distances, fitline, label="Gaussian fit")
 
+        ax.set_ylabel('Flux (ADU)')
+        ax.set_xlabel('Radius (pix)')
         ax.set_aspect(1.0/ax.get_data_ratio(), adjustable='box')  # equal aspect for non-images
         ax.legend()
 
@@ -374,12 +379,15 @@ class ImageExaminer():
             ax = plt.subplot(111)
             plotDirect = True
 
-        ax.plot(rowSlice, label='Row plot')
-        ax.plot(colSlice, label='Column plot')
+        xs = range(-1*self.boxHalfSize, self.boxHalfSize+1)
+        ax.plot(xs, rowSlice, label='Row plot')
+        ax.plot(xs, colSlice, label='Column plot')
         if logScale:
             pass
             # TODO: set yscale as log here also protect against negatives
 
+        ax.set_ylabel('Flux (ADU)')
+        ax.set_xlabel('Radius (pix)')
         ax.set_aspect(1.0/ax.get_data_ratio(), adjustable='box')  # equal aspect for non-images
 
         ax.legend()
@@ -395,6 +403,21 @@ class ImageExaminer():
                                             color="black", family='monospace'))
         ax.add_artist(stats_text)
         ax.axis('off')
+
+    def plotCurveOfGrowth(self, ax=None):
+        plotDirect = False
+        if not ax:
+            ax = plt.subplot(111)
+            plotDirect = True
+
+        ax.plot(self.radii, self.cumFluxesNorm, markersize=10)
+        ax.set_ylabel('Encircled flux (%)')
+        ax.set_xlabel('Radius (pix)')
+
+        ax.set_aspect(1.0/ax.get_data_ratio(), adjustable='box')  # equal aspect for non-images
+
+        if plotDirect:
+            plt.show()
 
     def plot(self):
         figsize = 6
@@ -418,7 +441,7 @@ class ImageExaminer():
         axStats2 = ax6  # noqa F841 - overwritten
         axSlices = ax7
         axRadial = ax8
-        axStats3 = ax9  # noqa F841 - overwritten
+        axCoG = ax9  # noqa F841 - overwritten
 
         self.plotFullExp(axExp)
         self.plotStar(axStar)
@@ -428,7 +451,7 @@ class ImageExaminer():
         self.plotRadialAverage(axRadial)
 
         # overwrite three axes with this one spanning 3 rows
-        axStats = plt.subplot2grid((3, 3), (0, 2), rowspan=3)
+        axStats = plt.subplot2grid((3, 3), (0, 2), rowspan=2)
 
         lines = []
         lines.append("     ---- Astro ----")
@@ -438,6 +461,8 @@ class ImageExaminer():
         lines.append("\n     ---- Cutout ----")
         lines.extend(self.translateStats(self.imStats, self.cutoutMappings))
         self.plotStats(axStats, lines)
+
+        self.plotCurveOfGrowth(axCoG)
 
         plt.tight_layout()
         if self.savePlots:
