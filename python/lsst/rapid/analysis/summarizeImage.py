@@ -38,7 +38,7 @@ from astro_metadata_translator import ObservationInfo
 
 
 class SummarizeImage():
-    """Task for the spectral extraction of single-star dispersed images.
+    """Task for the QUICK spectral extraction of single-star dispersed images.
 
     For a full description of how this tasks works, see the run() method.
     """
@@ -46,12 +46,12 @@ class SummarizeImage():
     # ConfigClass = SummarizeImageTaskConfig
     # _DefaultName = "summarizeImage"
 
-    def __init__(self, exp, display=None, debug=False, **kwargs):
-        # TODO: rename psfRefObjLoader to refObjLoader
+    def __init__(self, exp, display=None, debug=False, savePlotAs=None, **kwargs):
         super().__init__(**kwargs)
         self.exp = exp
         self.display = display
         self.debug = debug
+        self.savePlotAs = savePlotAs
 
         qfmTaskConfig = QuickFrameMeasurementTaskConfig()
         self.qfmTask = QuickFrameMeasurementTask(config=qfmTaskConfig)
@@ -236,8 +236,8 @@ class SummarizeImage():
         plt.tight_layout()
         plt.show()
 
-        if saveAs:
-            fig.savefig(saveAs)
+        if self.savePlotAs:
+            fig.savefig(self.savePlotAs)
 
     def init(self):
         pass
@@ -334,5 +334,6 @@ class SummarizeImage():
         self.continuumFlux98 = np.percentile(self.ridgeLineValues, 98)  # for most stars
 
         self.fit()
+        self.plot()
 
         return
