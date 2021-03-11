@@ -52,6 +52,31 @@ def gauss(x, a, x0, sigma):
 class ImageExaminer():
     """Class for the reproducing the functionality of imexam.
     """
+    astroMappings = {"object": "Object name",
+                     "mjd": "MJD",
+                     "expTime": "Exp Time",
+                     "filter": "Filter",
+                     "grating": "grating",
+                     "airmass": "Airmass",
+                     "rotangle": "Rotation Angle",
+                     "az": "Azimuth (deg)",
+                     "el": "Elevation (deg)"}
+
+    imageMappings = {"centroid": "Centroid",
+                     "maxValue": "Max pixel value",
+                     "maxPixelLocation": "Max pixel location",
+                     "multipleMaxPixels": "Mutiple max pixels?",
+                     "nBadPixels": "Num bad pixels",
+                     "nSatPixels": "Num saturated pixels",
+                     "percentile99": "99th percentile",
+                     "percentile9999": "99.99th percentile",
+                     "clippedMean": "Clipped mean",
+                     "clippedStddev": "Clipped stddev"}
+
+    cutoutMappings = {"nStatPixInBox": "nSat in cutout",
+                      "eeRadius50": "50% flux radius",
+                      "eeRadius80": "80% flux radius",
+                      "eeRadius90": "90% flux radius"}
 
     def __init__(self, exp, doTweakCentroid=True, savePlots=None, centroid=None, boxHalfSize=50):
 
@@ -215,6 +240,10 @@ class ImageExaminer():
         self.cumFluxes = np.cumsum(values)
         self.cumFluxesNorm = self.cumFluxes/np.max(self.cumFluxes)
 
+        self.imStats.eeRadius50 = self.getEncircledEnergyRadius(50)
+        self.imStats.eeRadius80 = self.getEncircledEnergyRadius(80)
+        self.imStats.eeRadius90 = self.getEncircledEnergyRadius(90)
+
         return
 
     def getEncircledEnergyRadius(self, percentage):
@@ -362,7 +391,7 @@ class ImageExaminer():
         text = "\n".join([line for line in lines])
 
         stats_text = AnchoredText(text, loc="center", pad=0.5,
-                                  prop=dict(size=11.5, ma="left", backgroundcolor="white",
+                                  prop=dict(size=14, ma="left", backgroundcolor="white",
                                             color="black", family='monospace'))
         ax.add_artist(stats_text)
         ax.axis('off')
@@ -402,10 +431,12 @@ class ImageExaminer():
         axStats = plt.subplot2grid((3, 3), (0, 2), rowspan=3)
 
         lines = []
-        for k, v in self.imStats.getDict().items():
-            if type(v) == float or isinstance(v, np.floating):
-                v = f"{v:,.1f}"
-            lines.append(f"{k}: {v}")
+        lines.append("     ---- Astro ----")
+        lines.extend(self.translateStats(self.imStats, self.astroMappings))
+        lines.append("\n     ---- Image ----")
+        lines.extend(self.translateStats(self.imStats, self.imageMappings))
+        lines.append("\n     ---- Cutout ----")
+        lines.extend(self.translateStats(self.imStats, self.cutoutMappings))
         self.plotStats(axStats, lines)
 
         plt.tight_layout()
@@ -413,6 +444,23 @@ class ImageExaminer():
             print(f'Plot saved to {self.savePlots}')
             fig.savefig(self.savePlots)
         plt.show()
+
+    @staticmethod
+    def translateStats(imStats, mappingDict):
+        lines = []
+        for k, v in mappingDict.items():
+            try:
+                value = getattr(imStats, k)
+            except Exception:
+                lines.append("")
+                continue
+
+            if type(value) == float or isinstance(value, np.floating):
+                value = f"{value:,.3f}"
+            if k == 'centroid':  # special case the only tuple
+                value = f"{value[0]:.1f}, {value[0]:.1f}"
+            lines.append(f"{v} = {value}")
+        return lines
 
     def plotAll(self):
         self.plotStar()
