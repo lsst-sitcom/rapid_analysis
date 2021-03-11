@@ -206,7 +206,23 @@ class ImageExaminer():
 
         self.radialDistances = distances
         self.radialValues = values
+
+        # calculate encircled energy metric too
+        # sort distances and values in step by distance
+        d = np.array([(r, v) for (r, v) in sorted(zip(self.radialDistances, self.radialValues))])
+        self.radii = d[:, 0]
+        values = d[:, 1]
+        self.cumFluxes = np.cumsum(values)
+        self.cumFluxesNorm = self.cumFluxes/np.max(self.cumFluxes)
+
         return
+
+    def getEncircledEnergyRadius(self, percentage):
+        """Radius in pixels with the given percentage of encircled energy.
+
+        100% is at the boxHalfWidth dy definition.
+        """
+        return self.radii[np.argmin(np.abs((percentage/100)-self.cumFluxesNorm))]
 
     def plotRadialAverage(self, ax=None):
         plotDirect = False
