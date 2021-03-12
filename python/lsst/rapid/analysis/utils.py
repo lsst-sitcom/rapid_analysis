@@ -197,3 +197,10 @@ def makePolarPlot(butler, dayObs, seqMin, seqMax, seqNumList=None, returnData=Fa
     ax.set_rlim(0, 90)
     if returnData:
         return {'azimuths': az, 'elevations': el, 'zenithAngles': zen}
+
+
+def getFocusFromHeader(exp):
+    md = exp.getMetadata()
+    if 'FOCUSZ' in md:
+        return md['FOCUSZ']
+    return None
