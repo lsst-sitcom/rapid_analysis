@@ -19,6 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import os
 import lsst.daf.persistence as dafPersist
 import lsst.geom as geom
 
@@ -55,7 +56,7 @@ class SpectralFocusAnalyzer():
 
     def __init__(self, repoDir, **kwargs):
 
-        self._butler = dafPersist.Butler(repoDir)
+        self._butler = dafPersist.Butler(os.path.join(repoDir, "rerun/quickLook/"))
         self._bestEffort = BestEffortIsr(repoDir, **kwargs)
         qfmTaskConfig = QuickFrameMeasurementTaskConfig()
         self._quickMeasure = QuickFrameMeasurementTask(config=qfmTaskConfig)
@@ -74,15 +75,6 @@ class SpectralFocusAnalyzer():
 
     def _setColors(self, nPoints):
         self.COLORS = cm.rainbow(np.linspace(0, 1, nPoints))
-
-    @staticmethod
-    def _checkImageIsDispersed(filterFullName):
-        if "~" not in filterFullName:
-            raise RuntimeError("Error parsing filter name {filterFullName}")
-        filt, grating = filterFullName.split('~')
-        if grating.startswith('EMPTY'):
-            return False
-        return True
 
     @staticmethod
     def _getFocusFromHeader(exp):
@@ -112,26 +104,29 @@ class SpectralFocusAnalyzer():
         amp, mean, sigma = pars
         return amp*np.exp(-(x-mean)**2/(2.*sigma**2))
 
-    def run(self, dayObs, seqNums, display=False, hideFit=False):
-        data, obj, filt = self.getFocusData(dayObs, seqNums, display=display)
-        bestFits = self.fitDataAndPlot(data, obj, filt, hideFit=hideFit)
+    def run(self, dayObs, seqNums, doDisplay=False, hideFit=False):
+        self.getFocusData(dayObs, seqNums, doDisplay=doDisplay)
+        bestFits = self.fitDataAndPlot(hideFit=hideFit)
         return bestFits
 
-    def getFocusData(self, dayObs, seqNums, doDisplay=False, display=None):
+    def getFocusData(self, dayObs, seqNums, doDisplay=False):
         fitData = {}
         filters = set()
         objects = set()
 
         for seqNum in seqNums:
             fitData[seqNum] = {}
-            exp = self._bestEffort.getExposure({'dayObs': dayObs, 'seqNum': seqNum})
+            if self._butler.datasetExists('quickLookExp', **{'dayObs': dayObs, 'seqNum': seqNum}):
+                exp = self._butler.get('quickLookExp', **{'dayObs': dayObs, 'seqNum': seqNum})
+            else:
+                exp = self._bestEffort.getExposure({'dayObs': dayObs, 'seqNum': seqNum})
 
             # sanity checking
             filt = exp.getFilter().getName()
             obj = self._butler.queryMetadata('raw', 'object', dayObs=dayObs, seqNum=seqNum)[0]
             objects.add(obj)
             filters.add(filt)
-            assert self._checkImageIsDispersed(filt), f"Image is not dispersed! (filter = {filt})"
+            assert isExpDispersed(exp), f"Image is not dispersed! (filter = {filt})"
             assert len(filters) == 1, "You accidentally mixed filters!"
             assert len(objects) == 1, "You accidentally mixed objects!"
 
@@ -167,12 +162,17 @@ class SpectralFocusAnalyzer():
                 sigma = 20
                 p0 = amp, mean, sigma
 
-                coeffs, var_matrix = curve_fit(self.gauss, xs, data1d, p0=p0)
+                try:
+                    coeffs, var_matrix = curve_fit(self.gauss, xs, data1d, p0=p0)
+                except RuntimeError:
+                    coeffs = (np.nan, np.nan, np.nan)
+
                 fitData[seqNum][i] = FitResult(amp=abs(coeffs[0]), mean=coeffs[1], sigma=abs(coeffs[2]))
                 if doDisplay:
                     axes[1].plot(xs, data1d, 'x', c=self.COLORS[i])
                     highResX = np.linspace(0, len(data1d), 1000)
-                    axes[1].plot(highResX, self.gauss(highResX, *coeffs), 'k-')
+                    if coeffs[0] is not np.nan:
+                        axes[1].plot(highResX, self.gauss(highResX, *coeffs), 'k-')
 
             if doDisplay:  # show all color boxes together
                 plt.title(f'Fits to seqNum {seqNum}')
@@ -181,9 +181,17 @@ class SpectralFocusAnalyzer():
             focuserPosition = self._getFocusFromHeader(exp)
             fitData[seqNum]['focus'] = focuserPosition
 
-        return fitData, filters.pop(), objects.pop()
+        self.fitData = fitData
+        self.filter = filters.pop()
+        self.object = objects.pop()
 
-    def fitDataAndPlot(self, data, obj, filt, hideFit=False, hexapodZeroPoint=0):
+        return
+
+    def fitDataAndPlot(self, hideFit=False, hexapodZeroPoint=0):
+        data = self.fitData
+        filt = self.filter
+        obj = self.object
+
         bestFits = []
 
         titleFontSize = 18
@@ -193,7 +201,7 @@ class SpectralFocusAnalyzer():
         arcminToPixel = 10
         sigmaToFwhm = 2.355
 
-        f, axes = plt.subplots(2, 1, figsize=[15, 8])
+        f, axes = plt.subplots(2, 1, figsize=[10, 12])
         focusPositions = [data[k]['focus']-hexapodZeroPoint for k in sorted(data.keys())]
         fineXs = np.linspace(np.min(focusPositions), np.max(focusPositions), 101)
         seqNums = sorted(data.keys())
