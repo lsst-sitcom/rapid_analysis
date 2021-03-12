@@ -483,7 +483,7 @@ class ImageExaminer():
             if type(value) == float or isinstance(value, np.floating):
                 value = f"{value:,.3f}"
             if k == 'centroid':  # special case the only tuple
-                value = f"{value[0]:.1f}, {value[0]:.1f}"
+                value = f"{value[0]:.1f}, {value[1]:.1f}"
             lines.append(f"{v} = {value}")
         return lines
 
