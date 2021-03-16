@@ -224,7 +224,7 @@ class ImageExaminer():
         except RuntimeError:
             pars = None
             self.imStats.fitAmp = np.nan
-            self.imStats.fitMean = np.nan
+            self.imStats.fitGausMean = np.nan
             self.imStats.fitFwhm = np.nan
 
         if pars is not None:
