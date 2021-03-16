@@ -469,6 +469,7 @@ class ImageExaminer():
             print(f'Plot saved to {self.savePlots}')
             fig.savefig(self.savePlots)
         plt.show()
+        plt.close('all')
 
     @staticmethod
     def translateStats(imStats, mappingDict):
