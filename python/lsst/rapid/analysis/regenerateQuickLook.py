@@ -50,7 +50,7 @@ def getAllDataIdsAcrossManyDayObs(days, butler):
         for seqNum in seqNums:
             dataId = {"dayObs": day, "seqNum": seqNum}
             dataIds.append(dataId)
-    return dataIds
+    return dataIds[::-1]  # reversed so we start with most recent first
 
 
 def regenerateQuickLookExps(dataIds, butler, bestEffortIsr, clobber=False):
