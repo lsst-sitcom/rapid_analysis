@@ -154,8 +154,12 @@ class Monitor():
                 imageInfoText = self._makeImageInfoText(dataId, exp, asList=True)
                 # too long of a title breaks Java FITS i/o
                 fireflyTitle = " ".join([s for s in imageInfoText])[:67]
-                self.display.scale('asinh', 'zscale')
-                self.display.mtv(exp, title=fireflyTitle)
+                try:
+                    self.display.scale('asinh', 'zscale')
+                    self.display.mtv(exp, title=fireflyTitle)
+                except Exception as e:  # includes JSONDecodeError, HTTPError, anything else
+                    print(f'Caught error {e}, skipping this image')  # TODO: try again maybe?
+
                 if self.overlayAmps:
                     cgUtils.overlayCcdBoxes(exp.getDetector(), display=self.display, isTrimmed=True)
 
