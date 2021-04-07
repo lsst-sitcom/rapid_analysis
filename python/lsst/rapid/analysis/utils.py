@@ -127,16 +127,6 @@ def getImageStats(exp):
     return result
 
 
-def isExpDispersed(exp):
-    filterFullName = exp.getFilterLabel().physicalLabel
-    if FILTER_DELIMITER not in filterFullName:
-        raise RuntimeError("Error parsing filter name {filterFullName}")
-    filt, grating = filterFullName.split(FILTER_DELIMITER)
-    if grating.upper().startswith('EMPTY'):
-        return False
-    return True
-
-
 def detectObjectsInExp(exp, nSigma=10, nPixMin=10, grow=0):
     """Return the footPrintSet for the objects in a postISR exposure."""
     median = np.nanmedian(exp.image.array)

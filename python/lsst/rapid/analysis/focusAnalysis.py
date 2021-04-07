@@ -38,7 +38,9 @@ from scipy.linalg import norm
 # TODO: change these back to local .imports
 from lsst.rapid.analysis.bestEffort import BestEffortIsr
 from lsst.rapid.analysis import ImageExaminer
-from lsst.rapid.analysis.utils import FWHMTOSIGMA, SIGMATOFWHM, isExpDispersed
+from lsst.rapid.analysis.utils import FWHMTOSIGMA, SIGMATOFWHM
+from lsst.atmospec.utils import isDispersedExp
+
 from lsst.pipe.tasks.quickFrameMeasurement import QuickFrameMeasurementTask, QuickFrameMeasurementTaskConfig
 
 
@@ -126,7 +128,7 @@ class SpectralFocusAnalyzer():
             obj = self._butler.queryMetadata('raw', 'object', dayObs=dayObs, seqNum=seqNum)[0]
             objects.add(obj)
             filters.add(filt)
-            assert isExpDispersed(exp), f"Image is not dispersed! (filter = {filt})"
+            assert isDispersedExp(exp), f"Image is not dispersed! (filter = {filt})"
             assert len(filters) == 1, "You accidentally mixed filters!"
             assert len(objects) == 1, "You accidentally mixed objects!"
 
@@ -305,7 +307,7 @@ class NonSpectralFocusAnalyzer():
             objects.add(obj)
             filters.add(filt)
             if doCheckDispersed:
-                assert not isExpDispersed(exp), f"Image is dispersed! (filter = {filt})"
+                assert not isDispersedExp(exp), f"Image is dispersed! (filter = {filt})"
             assert len(filters) == 1, "You accidentally mixed filters!"
             assert len(objects) == 1, "You accidentally mixed objects!"
 
