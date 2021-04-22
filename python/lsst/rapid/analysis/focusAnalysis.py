@@ -277,13 +277,14 @@ class NonSpectralFocusAnalyzer():
         amp, mean, sigma = pars
         return amp*np.exp(-(x-mean)**2/(2.*sigma**2))
 
-    def run(self, dayObs, seqNums, manualCentroid=None, doDisplay=False, hideFit=False):
-        self.getFocusData(dayObs, seqNums, manualCentroid=manualCentroid, doDisplay=doDisplay)
+    def run(self, dayObs, seqNums, *, manualCentroid=None, doDisplay=False, hideFit=False, doForceCoM=False):
+        self.getFocusData(dayObs, seqNums, manualCentroid=manualCentroid, doDisplay=doDisplay,
+                          doForceCoM=doForceCoM)
         bestFit = self.fitDataAndPlot(hideFit=hideFit)
         return bestFit
 
-    def getFocusData(self, dayObs, seqNums, manualCentroid=None, doCheckDispersed=True,
-                     doDisplay=False):
+    def getFocusData(self, dayObs, seqNums, *, manualCentroid=None, doCheckDispersed=True,
+                     doDisplay=False, doForceCoM=False):
         fitData = {}
         filters = set()
         objects = set()
@@ -311,7 +312,8 @@ class NonSpectralFocusAnalyzer():
             assert len(filters) == 1, "You accidentally mixed filters!"
             assert len(objects) == 1, "You accidentally mixed objects!"
 
-            imExam = ImageExaminer(exp, centroid=manualCentroid, doTweakCentroid=True, boxHalfSize=105)
+            imExam = ImageExaminer(exp, centroid=manualCentroid, doTweakCentroid=True, boxHalfSize=105,
+                                   doForceCoM=doForceCoM)
             if doDisplay:
                 imExam.plot()
 
