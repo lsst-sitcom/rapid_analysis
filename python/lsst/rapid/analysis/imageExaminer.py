@@ -81,11 +81,13 @@ class ImageExaminer():
                       "eeRadius80": "80% flux radius",
                       "eeRadius90": "90% flux radius"}
 
-    def __init__(self, exp, doTweakCentroid=True, savePlots=None, centroid=None, boxHalfSize=50):
+    def __init__(self, exp, *, doTweakCentroid=True, doForceCoM=False, savePlots=None,
+                 centroid=None, boxHalfSize=50):
 
         self.exp = exp
         self.savePlots = savePlots
         self.doTweakCentroid = doTweakCentroid
+        self.doForceCoM = doForceCoM
 
         self.boxHalfSize = boxHalfSize
         if centroid is None:
@@ -100,14 +102,15 @@ class ImageExaminer():
         else:
             self.centroid = centroid
 
+        self.imStats = getImageStats(self.exp)  # need the background levels now
+
         self.data = self.getStarBoxData()
         if self.doTweakCentroid:
-            self.tweakCentroid()
+            self.tweakCentroid(self.doForceCoM)
             self.data = self.getStarBoxData()
 
         self.xx, self.yy = self.getMeshGrid(self.data)
 
-        self.imStats = getImageStats(self.exp)
         self.imStats.centroid = self.centroid
         self.imStats.intCentroid = self.intCoords(self.centroid)
         self.imStats.intCentroidRounded = self.intRoundCoords(self.centroid)
@@ -121,15 +124,17 @@ class ImageExaminer():
     def intRoundCoords(self, coords):
         return (int(round(coords[0])), int(round(coords[1])))
 
-    def tweakCentroid(self):
+    def tweakCentroid(self, doForceCoM):
         peak, uniquePeak, otherPeaks = argMax2d(self.data)
         # saturated stars don't tend to have ambiguous max pixels
         # due to the bunny ears left after interpolation
         nSatPix = self.nSatPixInBox
 
-        if not uniquePeak or nSatPix:
-            print('Found multiple max pixels or star is saturated, usign CoM for centroid')
+        if not uniquePeak or nSatPix or doForceCoM:
+            print("Using CoM for centroid (because was forced to, or multiple max pixels, or saturated")
+            self.data -= self.imStats.clippedMean
             peak = ndImage.center_of_mass(self.data)
+            self.data += self.imStats.clippedMean
 
         offset = np.asarray(peak) - np.array((self.boxHalfSize, self.boxHalfSize))
         print(f"Centroid adjusted by {offset} pixels")
