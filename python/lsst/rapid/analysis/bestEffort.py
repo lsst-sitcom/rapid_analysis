@@ -35,7 +35,9 @@ class BestEffortIsr():
     def __init__(self, repodir='', defaultExtraIsrOptions={}, butler=None):
         """Instantiate a BestEffortIsr object.
 
-        Butler can only be reloaded if called with `repodir` option.
+        If a butler already exists, it can be passed in, otherwise one is
+        instantiated using the repodir.
+
         defaultExtraIsrOptions is a dict of options applied to all images."""
         if not repodir and butler is None:
             raise RuntimeError("You must either supply a repo dir or a butler")
@@ -45,9 +47,7 @@ class BestEffortIsr():
 
         if butler:
             self.butler = butler
-            print("WARNING: instantiated with a butler - new images in the repo will not be found")
         else:
-            self.repodir = repodir
             self.butler = dafPersist.Butler(repodir)
 
         self.defaultExtraIsrOptions = defaultExtraIsrOptions
@@ -61,9 +61,6 @@ class BestEffortIsr():
         self.writePostIsrImages = False
 
         self._cache = {}
-
-    def reloadButler(self):
-        self.butler = dafPersist.Butler(self.repodir)
 
     def _repairCosmics(self, exposure):
         try:
