@@ -58,8 +58,11 @@ def regenerateQuickLookExps(dataIds, butler, bestEffortIsr, clobber=False):
     for i, dataId in enumerate(dataIds):
         if (not quickLookExpExists(dataId, butler)) or clobber is True:
             print(f"Processing {dataId} - {i} of {nTotal}")
-            exp = bestEffortIsr.getExposure(dataId)
-            butler.put(exp, 'quickLookExp', dataId)
+            try:
+                exp = bestEffortIsr.getExposure(dataId)
+                butler.put(exp, 'quickLookExp', dataId)
+            except Exception:
+                print(f"Failed to generate quickLookExp for {dataId}")
 
 
 def checkQuickLookExpsExist(dataIds, butler):
