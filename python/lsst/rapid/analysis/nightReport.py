@@ -248,7 +248,7 @@ class NightReporter():
                 continue
             color = self.cMap[star].color
             marker = self.cMap[star].marker
-            plt.plot(times, ams, '*', color=color, marker=marker, label=star, ms=10)
+            plt.plot(times, ams, color=color, marker=marker, label=star, ms=10, ls='')
 
         plt.ylabel('Airmass', fontsize=20)
         if airmassOneAtTop:
