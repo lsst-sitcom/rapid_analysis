@@ -28,6 +28,9 @@ import matplotlib.pyplot as plt
 from matplotlib.offsetbox import AnchoredText
 from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 from scipy.optimize import curve_fit
+from itertools import groupby
+from astropy.stats import sigma_clip
+import warnings
 
 from lsst.atmospec.processStar import ProcessStarTask
 from lsst.pipe.tasks.quickFrameMeasurement import QuickFrameMeasurementTask, QuickFrameMeasurementTaskConfig
@@ -190,15 +193,22 @@ class SummarizeImage():
         ax2 = plt.subplot2grid((4, 4), (2, 0), colspan=3)
         ax2.plot(self.parameters[:, 2]*2.355, label="FWHM (pix)")
         fwhmValues = self.parameters[:, 2]*2.355
-        median_fwhm = np.nanmedian(fwhmValues)
-        ax2.axhline(median_fwhm, ls='dashed', color='k')
+        amplitudes = self.parameters[:, 0]
+        minVal, maxVal = self.getStableFwhmRegion(fwhmValues, amplitudes)
+        medianFwhm, bestFwhm = self.getMedianAndBestFwhm(fwhmValues, minVal, maxVal)
+
+        ax2.axhline(medianFwhm, ls='dashed', color='k',
+                    label=f"Median FWHM = {medianFwhm:.1f} pix")
+        ax2.axhline(bestFwhm, ls='dashed', color='r',
+                    label=f"Best FWHM = {bestFwhm:.1f} pix")
+        ax2.axvline(minVal, ls='dashed', color='k', alpha=0.2)
+        ax2.axvline(maxVal, ls='dashed', color='k', alpha=0.2)
         ymin = max(np.nanmin(fwhmValues)-5, 0)
-        ymax = median_fwhm*1.5
+        ymax = medianFwhm*2
         ax2.set_ylim(ymin, ymax)
         ax2.set_ylabel('FWHM (pixels)')
         ax2.set_xlabel('Spectrum position (pixels)')
-        ax2.legend(title=f"Median FWHM = {median_fwhm:.1f} pix", loc="upper right",
-                   framealpha=0.2, facecolor="black")
+        ax2.legend(loc="upper right", framealpha=0.2, facecolor="black")
         ax2.set_title('Spectrum FWHM')
 
         # row fluxes
@@ -337,3 +347,97 @@ class SummarizeImage():
         self.plot()
 
         return
+
+    @staticmethod
+    def getMedianAndBestFwhm(fwhmValues, minIndex, maxIndex):
+        with warnings.catch_warnings():  # to supress nan warnings, which are fine
+            warnings.simplefilter("ignore")
+            clippedValues = sigma_clip(fwhmValues[minIndex:maxIndex])
+            # cast back with asArray needed becase sigma_clip returns
+            # masked array which doesn't play nice with np.nan<med/percentile>
+            clippedValues = np.asarray(clippedValues)
+            medianFwhm = np.nanmedian(clippedValues)
+            bestFocusFwhm = np.nanpercentile(np.asarray(clippedValues), 2)
+        return medianFwhm, bestFocusFwhm
+
+    def getStableFwhmRegion(self, fwhmValues, amplitudes, smoothing=1, maxDifferential=4):
+        # smooth the fwhmValues values
+        # differentiate
+        # take the longest contiguous region of 1s
+        # check section corresponds to top 25% in ampl to exclude 2nd order
+        # if not, pick next longest run, etc
+        # walk out from ends of that list over bumps smaller than maxDiff
+
+        smoothFwhm = np.convolve(fwhmValues, np.ones(smoothing)/smoothing, mode='same')
+        diff = np.diff(smoothFwhm, append=smoothFwhm[-1])
+
+        indices = np.where(1-np.abs(diff) < 1)[0]
+        diffIndices = np.diff(indices)
+
+        # [list(g) for k, g in groupby('AAAABBBCCD')] -->[['A', 'A', 'A', 'A'],
+        #                              ... ['B', 'B', 'B'], ['C', 'C'], ['D']]
+        indexLists = [list(g) for k, g in groupby(diffIndices)]
+        listLengths = [len(lst) for lst in indexLists]
+
+        amplitudeThreshold = np.nanpercentile(amplitudes, 75)
+        sortedListLengths = sorted(listLengths)
+
+        for listLength in sortedListLengths[::-1]:
+            longestListLength = listLength
+            longestListIndex = listLengths.index(longestListLength)
+            longestListStartTruePosition = int(np.sum(listLengths[0:longestListIndex]))
+            longestListStartTruePosition += int(longestListLength/2)  # we want the mid-run value
+            if amplitudes[longestListStartTruePosition] > amplitudeThreshold:
+                break
+
+        startOfLongList = np.sum(listLengths[0:longestListIndex])
+        endOfLongList = startOfLongList + longestListLength
+
+        endValue = endOfLongList
+        for lst in indexLists[longestListIndex+1:]:
+            value = lst[0]
+            if value > maxDifferential:
+                break
+            endValue += len(lst)
+
+        startValue = startOfLongList
+        for lst in indexLists[longestListIndex-1::-1]:
+            value = lst[0]
+            if value > maxDifferential:
+                break
+            startValue -= len(lst)
+
+        startValue = int(max(0, startValue))
+        endValue = int(min(len(fwhmValues), endValue))
+
+        if not self.debug:
+            return startValue, endValue
+
+        medianFwhm, bestFocusFwhm = self.getMedianAndBestFwhm(fwhmValues, startValue, endValue)
+        xlim = (-20, len(fwhmValues))
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(fwhmValues)
+        plt.vlines(startValue, 0, 50, 'r')
+        plt.vlines(endValue, 0, 50, 'r')
+        plt.hlines(medianFwhm, xlim[0], xlim[1])
+        plt.hlines(bestFocusFwhm, xlim[0], xlim[1], 'r', ls='--')
+
+        plt.vlines(startOfLongList, 0, 50, 'g')
+        plt.vlines(endOfLongList, 0, 50, 'g')
+
+        plt.ylim(0, 200)
+        plt.xlim(xlim)
+        plt.show()
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(diffIndices)
+        plt.vlines(startValue, 0, 50, 'r')
+        plt.vlines(endValue, 0, 50, 'r')
+
+        plt.vlines(startOfLongList, 0, 50, 'g')
+        plt.vlines(endOfLongList, 0, 50, 'g')
+        plt.ylim(0, 30)
+        plt.xlim(xlim)
+        plt.show()
+        return startValue, endValue
