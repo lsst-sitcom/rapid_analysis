@@ -107,7 +107,7 @@ class Animator():
 
     def preRun(self):
         # check the binary is there and the paths work
-        assert os.path.exists(self.ffMpegBinary), "Cannot find ffMeg binary for animation"
+        assert os.path.exists(self.ffMpegBinary), "Cannot find ffmpeg binary for animation"
         if not os.path.exists(self.pngPath):
             os.makedirs(self.pngPath)
         assert os.path.exists(self.pngPath), f"Failed to create output dir: {self.pngsPath}"
@@ -160,7 +160,7 @@ class Animator():
                 self.makePng(dataId, self.dataIdToFilename(dataId))
 
         # stage files in temp dir with numbers prepended to filenames
-        logger.info('Making gif of pngs...')
+        logger.info('Copying files to ordered temp dir...')
         pngFilesOriginal = [self.dataIdToFilename(d) for d in self.dataIdList]
         for filename in pngFilesOriginal:  # these must all now exist, but let's assert just in case
             assert self.exists(filename)
@@ -173,17 +173,24 @@ class Animator():
             shutil.copy(srcFile, destFile)
             pngFileList.append(destFile)
 
+        # # create gif in temp dir
+        # outputGifFilename = os.path.join(tempDir, 'animation.gif')
+        # self.pngsToGif(pngFileList, outputGifFilename)
+
+        # # gif turn into mp4, optionally keep gif by moving up to output dir
+        # logger.info('Turning gif into mp4...')
+        # outputMp4Filename = self.outputFilename
+        # self.gifToMp4(outputGifFilename, outputMp4Filename)
+
+        # self.tidyUp(tempDir)
+        # logger.info('Finished!')
+
         # create gif in temp dir
-        outputGifFilename = os.path.join(tempDir, 'animation.gif')
-        self.pngsToGif(pngFileList, outputGifFilename)
 
-        # gif turn into mp4, optionally keep gif by moving up to output dir
-        logger.info('Turning gif into mp4...')
-        outputMp4Filename = self.outputFilename
-        self.gifToMp4(outputGifFilename, outputMp4Filename)
-
+        logger.info('Making mp4 of pngs...')
+        self.pngsToMp4(tempDir, self.outputFilename, 10, verbose=False)
         self.tidyUp(tempDir)
-        logger.info('Finished!')
+        logger.info(f'Finished! Output at {self.outputFilename}')
 
     def _titleFromExp(self, exp, dataId):
         items = ["OBJECT", "expTime", "FILTER", "imageType"]
@@ -241,20 +248,36 @@ class Animator():
             except Exception:
                 logger.warn(f"Failed to find OBJECT location for {dataId}")
 
+        deltaH = -0.05
+        deltaV = -0.05
+        plt.subplots_adjust(right=1+deltaH, left=0-deltaH, top=1+deltaV, bottom=0-deltaV)
         self.fig.savefig(saveFilename)
 
-    def pngsToGif(self, fileList, outputGifFilename):
-        subprocess.run(['convert', '-delay', '10', '-loop', '0', *fileList, outputGifFilename], check=True)
+    def pngsToMp4(self, indir, outfile, framerate, verbose=False):
+        """Create the movie with ffmpeg, from files."""
+        # NOTE: the order of ffmpeg arguments *REALLY MATTERS*.
+        # Reorder them at your own peril!
+        pathPattern = f'\"{os.path.join(indir, "*.png")}\"'
+        if verbose:
+            ffmpeg_verbose = 'info'
+        else:
+            ffmpeg_verbose = 'error'
+        cmd = ['ffmpeg',
+               '-v', ffmpeg_verbose,
+               '-f', 'image2',
+               '-y',
+               '-pattern_type glob',
+               '-framerate', f'{framerate}',
+               '-i', pathPattern,
+               '-vcodec', 'libx264',
+               '-b:v', '20000k',
+               '-profile:v', 'main',
+               '-pix_fmt', 'yuv420p',
+               '-threads', '10',
+               '-r', f'{framerate}',
+               os.path.join(outfile)]
 
-    def gifToMp4(self, inputGifFilename, outputMp4Filename):
-        command = (f'{self.ffMpegBinary} -i {inputGifFilename} -pix_fmt yuv420p'
-                   f' -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" {outputMp4Filename}')
-        output, error = subprocess.Popen(command, universal_newlines=True, shell=True,
-                                         stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-
-        if self.keepIntermediateGif:
-            outputGifName = self.outputFilename.replace('.mp4', '.gif')
-            shutil.copy(inputGifFilename, outputGifName)
+        subprocess.check_call(r' '.join(cmd), shell=True)
 
     def tidyUp(self, tempDir):
         shutil.rmtree(tempDir)
