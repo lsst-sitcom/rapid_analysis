@@ -229,13 +229,25 @@ class Animator():
         self.fig.clear()
 
         # must always keep exp unsmoothed for the centroiding via qfm
-        exp = self.butler.get(self.dataProcuctToPlot, **dataId)
+        try:
+            exp = self.butler.get(self.dataProcuctToPlot, **dataId)
+        except Exception:
+            # oh no, that should never happen, but it does! Let's just skip
+            print(f'Skipped {dataId}, because {self.dataProcuctToPlot} retrieval failed!')
+            return
         toDisplay = exp
         if self.smoothImages:
             toDisplay = exp.clone()
             toDisplay = self._smoothExp(toDisplay, 2)
-        self.disp.mtv(toDisplay.image, title=self._titleFromExp(exp, dataId))
-        self.disp.scale('asinh', 'zscale')
+
+        try:
+            self.disp.mtv(toDisplay.image, title=self._titleFromExp(exp, dataId))
+            self.disp.scale('asinh', 'zscale')
+        except RuntimeError:  # all-nan images slip through and don't display
+            self.disp.scale('linear', 0, 1)
+            self.disp.mtv(toDisplay.image, title=self._titleFromExp(exp, dataId))
+            self.disp.scale('asinh', 'zscale')  # set back for next image
+            pass
 
         if self.plotObjectCentroids:
             try:
