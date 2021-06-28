@@ -313,8 +313,8 @@ class Animator():
 if __name__ == '__main__':
     dataProcuctToPlot = 'quickLookExp'
     repoPath = '/project/shared/auxTel/rerun/quickLook'
-    outputPath = '/home/mfl/animatorOutput/feb18Debug/'
-    outputFilename = 'allFixed.mp4'
+    outputPath = '/home/mfl/animatorOutput/main/'
+    outputFilename = 'MarchToJune2021.mp4'
 
     butler = dafPersist.Butler(repoPath)
 
@@ -363,7 +363,7 @@ if __name__ == '__main__':
                             clobberVideoAndGif=True,
                             plotObjectCentroids=False)
         animator.run()
-    else:
+    elif False:
         # skipTypes = []
         dayObs = '2021-02-17'
         seqNums = range(100, 475+1)
@@ -379,6 +379,49 @@ if __name__ == '__main__':
                 toUse.append({'dayObs': dayObs, 'seqNum': seqNum})
 
         print(f'{len(toUse)} with {dataProcuctToPlot}')
+
+        animator = Animator(butler, toUse, outputPath, outputFilename,
+                            dataProcuctToPlot=dataProcuctToPlot,
+                            remakePngs=False,
+                            debug=False,
+                            clobberVideoAndGif=True,
+                            plotObjectCentroids=True,
+                            useQfmForCentroids=True)
+        animator.run()
+
+    else:
+        from myTools import getLatissOnSkyDataIds
+        onSkyIds = getLatissOnSkyDataIds(butler)
+
+        # currently, an afw read bug means these fail to butler.get()
+        onSkyIds.remove({'dayObs': '2021-02-11', 'seqNum': 1})
+        onSkyIds.remove({'dayObs': '2021-02-11', 'seqNum': 2})
+        onSkyIds.remove({'dayObs': '2021-02-11', 'seqNum': 3})
+
+        days = ["2021-03-03",
+                "2021-03-04",
+                "2021-03-05",
+                "2021-03-08",
+                "2021-03-09",
+                "2021-03-10",
+                "2021-03-11",
+                "2021-03-18",
+                "2021-03-22",
+                "2021-03-23",
+                "2021-04-08",
+                "2021-04-14",
+                "2021-05-21",
+                "2021-05-24",
+                "2021-05-25",
+                "2021-06-07",
+                "2021-06-08",
+                "2021-06-09",
+                "2021-06-10"]
+
+        toUse = []
+        for did in onSkyIds:
+            if did['dayObs'] in days:
+                toUse.append(did)
 
         animator = Animator(butler, toUse, outputPath, outputFilename,
                             dataProcuctToPlot=dataProcuctToPlot,
