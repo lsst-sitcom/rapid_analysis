@@ -412,5 +412,6 @@ class NonSpectralFocusAnalyzer():
 #     # dataId = {'dayObs': '2020-02-20', 'seqNum': 485}  # direct image
 #     dataId = {'dayObs': '2020-03-12'}
 #     seqNums = [121, 122]
-#     data, filt, obj = analyzer.getFocusData(dataId['dayObs'], seqNums, doDisplay=True)
+#     data, filt, obj = analyzer.getFocusData(dataId['dayObs'],
+#                                             seqNums, doDisplay=True)
 #     analyzer.fitDataAndPlot(data, filt, obj)
