@@ -42,20 +42,13 @@ S - Satellite or plane crossing image
 INSTRUCTIONS = (TAGS + '\n' +
                 """
                 = - apply the same annotations as the previous image
+                To enter no tags but some notes, just start with a space
                 """)
 
 
 class ImageSorter():
     """Take a list on png files, as created by lsst.rapid.analysis.animator
-    and tag each dataId with a number of attributes. Some suggestions:
-
-    F - focus is poor, or part of a focus sweep
-    V - potential lack of bias voltage
-    D - donut image
-    G - Significant ghosting or ghoulies present
-    X - significant crosstalk
-
-    ! - something is totally borked (pointing error, earthquake-PSF, etc)
+    and tag each dataId with a number of attributes.
 
     Returns a dict of dataId dictionaries with values being the corresponding
     """
@@ -119,6 +112,11 @@ class ImageSorter():
 
         for dataId, answerFull in loaded.items():
             answer = answerFull.lower()
+            if answerFull.startswith(' '):  # notes only case
+                tags[dataId] = ''
+                notes[dataId] = answerFull.strip()
+                continue
+
             if " " in answer:
                 answer = answerFull.split()[0]
                 notes[dataId] = " ".join([_ for _ in answerFull.split()[1:]])
