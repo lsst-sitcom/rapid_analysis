@@ -28,17 +28,16 @@ import re
 
 
 TAGS = """
-G - Good centroid
-B - Bad centroid
-
-L - median per row lines
-C - very visible crosstalk
-F - Poor focus
+  - (Blank/no annotation) - nominally good, i.e. nothing notable in the image
+Q - bad main star location (denoted by cross-hair on image sorter)
+F - Obviously very poor focus (worse than just seeing, does NOT include donuts)
 D - Donut image
-N - No target star marked!
-A - Bad amp offsets!
-V - No back bias?
-P - Bad PSF (rotation/pointing/tracking error, earthquake, etc)
+O - Occlusion (dome or door)
+V - No back bias suspected
+P - Non-standard PSF (rotator/mount issues/tracking error, etc)
+S - Satellite or plane crossing image
+! - Something interesting/crazy - see notes on image
+
 = - apply the same annotations as the previous image
 """
 
