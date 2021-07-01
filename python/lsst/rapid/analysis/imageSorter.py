@@ -27,33 +27,28 @@ from os import system
 import re
 
 
-TIPS = """
-G - Good centroid
-B - Bad centroid
-
-L - median per row lines
-C - very visible crosstalk
-F - Poor focus
+TAGS = """
+  - (Blank/no annotation) - nominally good, i.e. nothing notable in the image
+Q - bad main star location (denoted by cross-hair on image sorter)
+F - Obviously very poor focus (worse than just seeing, does NOT include donuts)
 D - Donut image
-N - No target star marked!
-A - Bad amp offsets!
-V - No back bias?
-P - Bad PSF (rotation/pointing/tracking error, earthquake, etc)
-= - apply the same annotations as the previous image
+O - Occlusion (dome or door)
+V - No back bias suspected
+P - Non-standard PSF (rotator/mount issues/tracking error, etc)
+S - Satellite or plane crossing image
+! - Something interesting/crazy - see notes on image
 """
+
+INSTRUCTIONS = (TAGS + '\n' +
+                """
+                = - apply the same annotations as the previous image
+                To enter no tags but some notes, just start with a space
+                """)
 
 
 class ImageSorter():
     """Take a list on png files, as created by lsst.rapid.analysis.animator
-    and tag each dataId with a number of attributes. Some suggestions:
-
-    F - focus is poor, or part of a focus sweep
-    V - potential lack of bias voltage
-    D - donut image
-    G - Significant ghosting or ghoulies present
-    X - significant crosstalk
-
-    ! - something is totally borked (pointing error, earthquake-PSF, etc)
+    and tag each dataId with a number of attributes.
 
     Returns a dict of dataId dictionaries with values being the corresponding
     """
@@ -117,10 +112,15 @@ class ImageSorter():
 
         for dataId, answerFull in loaded.items():
             answer = answerFull.lower()
+            if answerFull.startswith(' '):  # notes only case
+                tags[dataId] = ''
+                notes[dataId] = answerFull.strip()
+                continue
+
             if " " in answer:
                 answer = answerFull.split()[0]
                 notes[dataId] = " ".join([_ for _ in answerFull.split()[1:]])
-            tags[dataId] = answer
+            tags[dataId] = answer.upper()
 
         return tags, notes
 
@@ -170,7 +170,7 @@ class ImageSorter():
         # need to write file first, even if empty, because _load and _save
         # are inside the loop to ensure that annotations aren't lost even on
         # full crash
-        print(TIPS)
+        print(INSTRUCTIONS)
         self._save(info, self.outputFilename)
 
         plt.figure(figsize=(10, 10))
