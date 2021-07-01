@@ -37,9 +37,12 @@ V - No back bias suspected
 P - Non-standard PSF (rotator/mount issues/tracking error, etc)
 S - Satellite or plane crossing image
 ! - Something interesting/crazy - see notes on image
-
-= - apply the same annotations as the previous image
 """
+
+INSTRUCTIONS = (TAGS + '\n' +
+                """
+                = - apply the same annotations as the previous image
+                """)
 
 
 class ImageSorter():
@@ -169,7 +172,7 @@ class ImageSorter():
         # need to write file first, even if empty, because _load and _save
         # are inside the loop to ensure that annotations aren't lost even on
         # full crash
-        print(TAGS)
+        print(INSTRUCTIONS)
         self._save(info, self.outputFilename)
 
         plt.figure(figsize=(10, 10))
