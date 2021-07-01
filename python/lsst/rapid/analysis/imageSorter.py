@@ -27,7 +27,7 @@ from os import system
 import re
 
 
-TIPS = """
+TAGS = """
 G - Good centroid
 B - Bad centroid
 
@@ -120,7 +120,7 @@ class ImageSorter():
             if " " in answer:
                 answer = answerFull.split()[0]
                 notes[dataId] = " ".join([_ for _ in answerFull.split()[1:]])
-            tags[dataId] = answer
+            tags[dataId] = answer.upper()
 
         return tags, notes
 
@@ -170,7 +170,7 @@ class ImageSorter():
         # need to write file first, even if empty, because _load and _save
         # are inside the loop to ensure that annotations aren't lost even on
         # full crash
-        print(TIPS)
+        print(TAGS)
         self._save(info, self.outputFilename)
 
         plt.figure(figsize=(10, 10))
