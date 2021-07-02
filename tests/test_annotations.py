@@ -136,6 +136,11 @@ class AnnotationsTestCase(lsst.utils.tests.TestCase):
         correct = set([_t(dId) for dId in [tagId2, tagId3]])
         self.assertTrue(set(ids) == correct)
 
+        # check exact matches for multiple tags
+        ids = self.annotations.getIdsWithGivenTags('ab', exactMatches=True)
+        correct = set([_t(dId) for dId in [tagId2]])
+        self.assertTrue(set(ids) == correct)
+
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass
