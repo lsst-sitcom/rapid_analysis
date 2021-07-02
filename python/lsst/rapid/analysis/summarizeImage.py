@@ -33,11 +33,17 @@ from astropy.stats import sigma_clip
 import warnings
 
 from lsst.atmospec.processStar import ProcessStarTask
+from lsst.atmospec.utils import getLinearStagePosition
 from lsst.pipe.tasks.quickFrameMeasurement import QuickFrameMeasurementTask, QuickFrameMeasurementTaskConfig
 
 from lsst.obs.lsst.translators.lsst import FILTER_DELIMITER
 from lsst.rapid.analysis.utils import getImageStats
 from astro_metadata_translator import ObservationInfo
+
+from spectractor import parameters
+from spectractor.extractor.dispersers import Grating
+parameters.CCD_PIXEL2MM = 0.010  # TODO: Do this a better way
+parameters.CCD_PIXEL2ARCSEC = 0.0952
 
 
 class SummarizeImage():
@@ -60,7 +66,8 @@ class SummarizeImage():
         self.qfmTask = QuickFrameMeasurementTask(config=qfmTaskConfig)
 
         pstConfig = ProcessStarTask.ConfigClass()
-        pstConfig.offsetFromMainStar = 400
+        self.offsetFromMainStar = 400
+        pstConfig.offsetFromMainStar = self.offsetFromMainStar
         self.processStarTask = ProcessStarTask(config=pstConfig)
 
         self.imStats = getImageStats(exp)
@@ -189,6 +196,9 @@ class SummarizeImage():
                    loc="center right", framealpha=0.2, facecolor="black")
         ax1.set_title('Ridgeline plot')
 
+        ax1_twin = ax1.twiny()  # instantiate a second axes that shares the same y-axis
+        ax1_twin.plot(self.nominalWavelengthAxisPoints[self.goodSlice], self.ridgeLineValues[self.goodSlice])
+
         # FWHM
         ax2 = plt.subplot2grid((4, 4), (2, 0), colspan=3)
         ax2.plot(self.parameters[:, 2]*2.355, label="FWHM (pix)")
@@ -211,6 +221,9 @@ class SummarizeImage():
         ax2.legend(loc="upper right", framealpha=0.2, facecolor="black")
         ax2.set_title('Spectrum FWHM')
 
+        ax2_twin = ax2.twiny()  # instantiate a second axes that shares the same y-axis
+        ax2_twin.plot(self.nominalWavelengthAxisPoints[self.goodSlice], self.parameters[:, 2]*2.355)
+
         # row fluxes
         ax3 = plt.subplot2grid((4, 4), (3, 0), colspan=3)
         ax3.plot(self.rowSums[self.goodSlice], label="Sum across row")
@@ -218,6 +231,9 @@ class SummarizeImage():
         ax3.set_xlabel('Spectrum position (pixels)')
         ax3.legend(framealpha=0.2, facecolor="black")
         ax3.set_title('Row sums')
+
+        ax3_twin = ax3.twiny()  # instantiate a second axes that shares the same y-axis
+        ax3_twin.plot(self.nominalWavelengthAxisPoints[self.goodSlice], self.rowSums[self.goodSlice])
 
         # textbox top
 #         ax4 = plt.subplot2grid((4, 4), (1, 3))
@@ -342,6 +358,20 @@ class SummarizeImage():
 
         self.continuumFlux90 = np.percentile(self.ridgeLineValues, 90)  # for emission stars
         self.continuumFlux98 = np.percentile(self.ridgeLineValues, 98)  # for most stars
+
+        startPix = self.offsetFromMainStar
+        endPix = startPix + self.spectrumData.shape[0]
+        nPix = endPix - startPix + 1
+        samplePoints = np.linspace(startPix, endPix, nPix)
+        # TODO: fix hard coding of grating
+        linearStagePosition = getLinearStagePosition(self.exp)
+        wl = np.ones_like(samplePoints)
+        try:
+            grating = Grating(90, 'ronchi90lpmm', linearStagePosition)  # first arg ignored when named!
+            wl = grating.grating_pixel_to_lambda(samplePoints, (0, 0))
+        except Exception:  # not sure what happens if grating not found
+            pass  # we have a default set of ones already
+        self.nominalWavelengthAxisPoints = wl
 
         self.fit()
         self.plot()
