@@ -32,8 +32,6 @@ import lsst.daf.persistence as dafPersist
 from lsst.obs.lsst.translators.lsst import FILTER_DELIMITER
 from astro_metadata_translator import ObservationInfo
 
-from lsst.atmospec.utils import airMassFromRawMetadata
-
 __all__ = ['NightReporter', 'saveReport', 'loadReport']
 
 CALIB_VALUES = ['FlatField position', 'Park position', 'azel_target']
@@ -44,6 +42,33 @@ MARKER_SEQUENCE = ['*', 'o', "D", 'P', 'v', "^", 's', '.', ',', 'o', 'v', '^',
 SOUTHPOLESTAR = 'HD 185975'
 
 PICKLE_TEMPLATE = "%s.pickle"
+
+KEY_MAPPER = {'OBJECT': 'object',
+              'EXPTIME': 'exposure_time',
+              'IMGTYPE': 'observation_type',
+              'MJD-BEG': 'datetime_begin',
+              }
+
+
+def getValue(key, header, stripUnits=True):
+    """Get a header value the Right Way.
+
+    If it is available from the ObservationInfo, use that, either directly or
+    via the KEY_MAPPER dict.
+    If not, try to get it from the header.
+    If it is not in the header, return None.
+    """
+    if key in KEY_MAPPER:
+        key = KEY_MAPPER[key]
+
+    if hasattr(header['ObservationInfo'], key):
+        val = getattr(header['ObservationInfo'], key)
+        if hasattr(val, 'value') and stripUnits:
+            return val.value
+        else:
+            return val
+
+    return header.get(key, None)
 
 
 # wanted these to be on the class but it doesn't pickle itself nicely
@@ -122,7 +147,7 @@ class NightReporter():
     def getUniqueValuesForKey(self, key, ignoreCalibs=True):
         values = []
         for seqNum in self.data.keys():
-            v = self.data[seqNum][key]
+            v = getValue(key, self.data[seqNum])
             if ignoreCalibs is True and v in CALIB_VALUES:
                 continue
             values.append(v)
@@ -173,8 +198,8 @@ class NightReporter():
         """e.g. all the RA values for OBJECT=='HD 123'"""
         ret = []
         for seqNum in self.data.keys():
-            if self.data[seqNum][keyValPairAsTuple[0]] == keyValPairAsTuple[1]:
-                ret.append(self.data[seqNum][keyToGet])
+            if getValue(keyValPairAsTuple[0], self.data[seqNum]) == keyValPairAsTuple[1]:
+                ret.append(getValue(keyToGet, self.data[seqNum]))
         if uniqueOnly:
             return list(set(ret))
         return ret
@@ -199,7 +224,7 @@ class NightReporter():
     def isDispersed(self, seqNum):
         filt = self.data[seqNum]['ObservationInfo'].physical_filter
         grating = filt.split(FILTER_DELIMITER)[1]
-        if "EMPTY" not in grating:
+        if "EMPTY" not in grating.upper():
             return True
         return False
 
@@ -211,7 +236,8 @@ class NightReporter():
         airMasses = {}
         for star in objects:
             seqNums = self.getObjectValues('SEQNUM', star)
-            airMasses[star] = [(airMassFromRawMetadata(self.data[seqNum]), self.data[seqNum]['MJD'])
+            airMasses[star] = [(self.data[seqNum]['ObservationInfo'].boresight_airmass,
+                                getValue('MJD-BEG', self.data[seqNum]))
                                for seqNum in sorted(seqNums) if filterFunc(self, seqNum)]
         return airMasses
 
@@ -275,20 +301,23 @@ class NightReporter():
 
         seqNums = sorted(seqNums)
         for i, seqNum in enumerate(seqNums):
-            expTime = self.data[seqNum]['EXPTIME']
-            filt = self.data[seqNum]['ObservationInfo'].physical_filter
-            imageType = self.data[seqNum]['ObservationInfo'].observation_type
-            d1 = self.data[seqNum]['ObservationInfo'].datetime_begin
-            obj = self.data[seqNum]['OBJECT']
-            if i == 0:
+            try:
+                expTime = self.data[seqNum]['ObservationInfo'].exposure_time.value
+                filt = self.data[seqNum]['ObservationInfo'].physical_filter
+                imageType = self.data[seqNum]['ObservationInfo'].observation_type
+                d1 = self.data[seqNum]['ObservationInfo'].datetime_begin
+                obj = self.data[seqNum]['ObservationInfo'].object
+                if i == 0:
+                    d0 = d1
+                dt = (d1-d0)
                 d0 = d1
-            dt = (d1-d0)
-            d0 = d1
-            timeOfDay = d1.isot.split('T')[1]
-            msg = f'{seqNum:4} {imageType:9} {obj:10} {timeOfDay} {filt:25} {dt.sec:6.1f}  {expTime:2.2f}'
+                timeOfDay = d1.isot.split('T')[1]
+                msg = f'{seqNum:4} {imageType:9} {obj:10} {timeOfDay} {filt:25} {dt.sec:6.1f}  {expTime:2.2f}'
+            except KeyError:
+                msg = f'{seqNum:4} - error parsing headers/observation info! Check the file'
             lines.append(msg)
 
-        print(r"{seqNum:4} {imageType:9} {obj:10} {timeOfDay} {filt:25} {dt.sec:6.1f}  {expTime:2.2f}")
+        print(r"{seqNum} {imageType} {obj} {timeOfDay} {filt} {timeSinceLastExp} {expTime}")
         for line in lines[-tailNumber:]:
             print(line)
 
@@ -308,7 +337,7 @@ class NightReporter():
             if seqNum not in self.data.keys():
                 print(f"Warning! No data found for seqNum {seqNum}")
                 continue
-            expTimeSum += self.data[seqNum]['EXPTIME']
+            expTimeSum += self.data[seqNum]['ObservationInfo'].exposure_time.value
 
         timeOnSky = (timeEnd - timeStart).sec
         efficiency = expTimeSum/timeOnSky
