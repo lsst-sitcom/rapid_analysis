@@ -115,10 +115,10 @@ def plotMountTracking(dataId, butler, client, figure, saveFilename, butlerGenera
     start = time.time()
 
     # Calculate the tracking errors
-    az_vals = np.array(az.values.tolist())[:, 0]
-    el_vals = np.array(el.values.tolist())[:, 0]
-    rot_vals = np.array(rot.values.tolist())[:, 0]
-    times = np.array(az.values.tolist())[:, 1]
+    az_vals = np.array(az.values[:, 0])
+    el_vals = np.array(el.values[:, 0])
+    rot_vals = np.array(rot.values[:, 0])
+    times = np.array(az.values[:, 1])
     logger.debug("Length of packed time series", len(az_vals))
 
     # Fit with a linear
