@@ -60,9 +60,8 @@ def plotMountTracking(dataId, butler, client, figure, saveFilename, butlerGenera
     start = time.time()
 
     if butlerGeneration == 3:
-        expId = dataId['expId']
-        mData = butler.get('raw.metadata', detector=0, exposure=expId)
-        dataIdString = str(expId)
+        mData = butler.get('raw.metadata', **dataId)
+        dataIdString = str(dataId['expId'])
     else:
         mData = butler.get('raw_md', **dataId)
         dataIdString = f"{dataId['dayObs']}-{dataId['seqNum']}"
