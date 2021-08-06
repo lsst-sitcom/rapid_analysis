@@ -187,7 +187,7 @@ class ImExaminer():
     def callback(self, dataId):
         try:
             self.log.info(f'Running imexam on {dataId}')
-            tempFilename = tempfile.mktemp() + '.png'
+            tempFilename = tempfile.mktemp(suffix='.png')
             uploadFilename = _dataIdToFilename(self.channel, dataId)
             exp = _waitForDataProduct(self.butler, self.dataProduct, dataId, self.log)
             if not exp:
@@ -231,7 +231,7 @@ class SpecExaminer():
                 return
 
             self.log.info(f'Running specExam on {dataId}')
-            tempFilename = tempfile.mktemp() + '.png'
+            tempFilename = tempfile.mktemp(suffix='.png')
             uploadFilename = _dataIdToFilename(self.channel, dataId)
             exp = _waitForDataProduct(self.butler, self.dataProduct, dataId, self.log)
             if not exp:
@@ -270,7 +270,7 @@ class Monitor():
     def callback(self, dataId):
         try:
             self.log.info(f'Generating monitor image for {dataId}')
-            tempFilename = tempfile.mktemp() + '.png'
+            tempFilename = tempfile.mktemp(suffix='.png')
             uploadFilename = _dataIdToFilename(self.channel, dataId)
             exp = _waitForDataProduct(self.butler, self.dataProduct, dataId, self.log)
             if not exp:
@@ -307,7 +307,7 @@ class MountTorquePlotter():
 
     def callback(self, dataId):
         try:
-            tempFilename = tempfile.mktemp() + '.png'
+            tempFilename = tempfile.mktemp(suffix='.png')
             uploadFilename = _dataIdToFilename(self.channel, dataId)
             plotted = plotMountTracking(dataId, self.butler, self.client, self.fig, tempFilename, 2, self.log)
 
