@@ -27,17 +27,16 @@ import asyncio
 
 try:
     from lsst_efd_client import merge_packed_time_series as mpts
-    HAS_EFD_CLIENT = True
 except ImportError:
-    HAS_EFD_CLIENT = False
+    pass
 
 GOOD_IMAGE_TYPES = ['OBJECT', 'SKYEXP', 'ENGTEST']
 
 
-def getData(client, dataSeries, startTime, endTime):
-    """A synchronous get of the data from the EFD
+def _getEfdData(client, dataSeries, startTime, endTime):
+    """A synchronous warpper for geting the data from the EFD.
 
-    This exists so that the top level functions don't all have to be async def
+    This exists so that the top level functions don't all have to be async def.
     """
     loop = asyncio.get_event_loop()
     return loop.run_until_complete(client.select_time_series(dataSeries, ['*'], startTime, endTime))
@@ -45,13 +44,35 @@ def getData(client, dataSeries, startTime, endTime):
 
 def plotMountTracking(dataId, butler, client, figure, saveFilename, butlerGeneration, logger):
     """Queries EFD for given exposure and checks if there were tracking errors.
-        Parameters
-        ----------
-        XXX Write the docs
 
-        Returns
-        -------
-        None
+    Parameters
+    ----------
+    dataId : `dict`
+        The dataId for quich to plot the mount torques.
+
+    butler : `lsst.daf.persistence.Butler` or `lsst.daf.butler.Butler`
+        The butler to use to retrieve the image metadata.
+
+    client : `lsst_efd_client.Client`
+        The EFD client to retrieve the mount torques.
+
+    figure : `matplotlib.Figure`
+        A matplotlib figure to re-use. Necessary to pass this in to prevent an
+        ever-growing figure count and the ensuing memory leak.
+
+    saveFilename : `str`
+        Full path and filename to save the plot to.
+
+    butlerGeneration : `int`
+        The butler generation (2 or 3).
+
+    logger : `lsst.log.Log`
+        The logger.
+
+    Returns
+    -------
+    plotted : `bool`
+        True if the dataId was plotted, False if it was skipped.
     """
     # lsst-efd-client is not a required import at the top here, but is
     # implicitly required as a client is passed into this function so is not
@@ -96,9 +117,9 @@ def plotMountTracking(dataId, butler, client, figure, saveFilename, butlerGenera
     t_end = Time(tEnd, scale='tai')
     logger.debug(f"Tstart = {t_start.isot}, Tend = {t_end.isot}")
 
-    mount_position = getData(client, "lsst.sal.ATMCS.mount_AzEl_Encoders", t_start, t_end)
-    nasmyth_position = getData(client, "lsst.sal.ATMCS.mount_Nasmyth_Encoders", t_start, t_end)
-    torques = getData(client, "lsst.sal.ATMCS.measuredTorque", t_start, t_end)
+    mount_position = _getEfdData(client, "lsst.sal.ATMCS.mount_AzEl_Encoders", t_start, t_end)
+    nasmyth_position = _getEfdData(client, "lsst.sal.ATMCS.mount_Nasmyth_Encoders", t_start, t_end)
+    torques = _getEfdData(client, "lsst.sal.ATMCS.measuredTorque", t_start, t_end)
     logger.debug("Length of time series", len(mount_position))
 
     az = mpts(mount_position, 'azimuthCalculatedAngle', stride=1, internal_time_scale="utc")
