@@ -23,9 +23,11 @@ __all__ = ['makePolarPlot', 'detectObjectsInExp']
 
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.ndimage.filters import gaussian_filter
 import lsst.afw.detection as afwDetect
 import lsst.afw.math as afwMath
 import lsst.pipe.base as pipeBase
+import lsst.log as lsstLog
 
 from lsst.obs.lsst.translators.lsst import FILTER_DELIMITER
 from astro_metadata_translator import ObservationInfo
@@ -34,10 +36,22 @@ from astro_metadata_translator import ObservationInfo
 SIGMATOFWHM = 2.0*np.sqrt(2.0*np.log(2.0))
 FWHMTOSIGMA = 1/SIGMATOFWHM
 
+EFD_CLIENT_MISSING_MSG = ('ImportError: lsst_efd_client not found. Please install with:\n'
+                          '    pip install lsst-efd-client')
+
+GOOGLE_CLOUD_MISSING_MSG = ('ImportError: Google cloud storage not found. Please install with:\n'
+                            '    pip install google-cloud-storage')
+
 
 def countPixels(maskedImage, maskPlane):
     bit = maskedImage.mask.getPlaneBitMask(maskPlane)
     return len(np.where(np.bitwise_and(maskedImage.mask.array, bit))[0])
+
+
+def quickSmooth(data, sigma=2):
+    kernel = [sigma, sigma]
+    smoothData = gaussian_filter(data, kernel, mode='constant')
+    return smoothData
 
 
 def argMax2d(array):
@@ -194,3 +208,31 @@ def getFocusFromHeader(exp):
     if 'FOCUSZ' in md:
         return md['FOCUSZ']
     return None
+
+
+def checkRubinTvExternalPackages(exitIfNotFound=True, logger=None):
+    if not logger:
+        logger = lsstLog.Log.getDefaultLogger()
+
+    hasGoogleStorage = False
+    hasEfdClient = False
+    try:
+        from google.cloud import storage  # noqa: F401
+        hasGoogleStorage = True
+    except ImportError:
+        pass
+
+    try:
+        from lsst_efd_client import EfdClient  # noqa: F401
+        hasEfdClient = True
+    except ImportError:
+        pass
+
+    if not hasGoogleStorage:
+        logger.warn(GOOGLE_CLOUD_MISSING_MSG)
+
+    if not hasEfdClient:
+        logger.warn(EFD_CLIENT_MISSING_MSG)
+
+    if exitIfNotFound and (not hasGoogleStorage or not hasEfdClient):
+        exit()
