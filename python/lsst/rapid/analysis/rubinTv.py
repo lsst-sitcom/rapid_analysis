@@ -55,11 +55,47 @@ PREFIXES = {chan: chan.replace('_', '-') for chan in CHANNELS}
 
 
 def _dataIdToFilename(channel, dataId):
+    """Convert a dataId to a png filename.
+
+    Parameters
+    ----------
+    channel : `str`
+        The name of the RubinTV channel
+
+    dataId : `dict`
+        The dataId
+
+    Returns
+    -------
+    filename : `str`
+        The filename
+    """
     filename = f"{PREFIXES[channel]}_dayObs_{dataId['dayObs']}_seqNum_{dataId['seqNum']}.png"
     return filename
 
 
 def _waitForDataProduct(butler, dataProduct, dataId, logger, maxTime=20):
+    """Wait for a dataProduct to land inside a repo, timing out in maxTime.
+
+    Parameters
+    ----------
+    butler : `lsst.daf.persistence.Butler`
+        The name of the RubinTV channel
+
+    dataProduct : `str`
+        The dataProduct to wait for, e.g. postISRCCD or calexp etc
+
+    logger : `lsst.log.Log`
+        Logger
+
+    maxTime : `int` or `float`
+        The timeout, in seconds, to wait before giving up and returning None.
+
+    Returns
+    -------
+    dataProduct : dataProduct or None
+        Either the dataProduct being waiter for, or None if maxTime elapsed.
+    """
     cadence = 0.25
     maxLoops = int(maxTime//cadence)
     for retry in range(maxLoops):
@@ -72,6 +108,9 @@ def _waitForDataProduct(butler, dataProduct, dataId, logger, maxTime=20):
 
 
 class Uploader():
+    """Class for handling uploads to the Google cloud storage bucket.
+    """
+
     def __init__(self):
         if not HAS_GOOGLE_STORAGE:
             from lsst.rapid.analysis.utils import GOOGLE_CLOUD_MISSING_MSG
@@ -81,9 +120,30 @@ class Uploader():
         self.log = logging.getLogger("googleUploader")
 
     def googleUpload(self, channel, sourceFilename, uploadAsFilename=None):
+        """Upload a file to the RubinTV Google cloud storage bucket.
+
+        Parameters
+        ----------
+        channel : `str`
+            The RubinTV channel to upload to.
+
+        sourceFilename : `str`
+            The full path and filename of the file to upload.
+
+        uploadAsFilename : `str`, optional
+            Optionally rename the file to this upon upload.
+
+        Raises
+        ------
+        ValueError
+            Raised if the specified channel is not in the list of existing
+            channels as specified in CHANNELS
+
+        RuntimeError
+            Raised if the Google cloud storage is not installed/importable.
+        """
         if channel not in CHANNELS:
-            self.log.warn(f"Error: {channel} not in {CHANNELS}")
-            return
+            raise ValueError(f"Error: {channel} not in {CHANNELS}")
 
         if uploadAsFilename and (os.path.basename(sourceFilename) != uploadAsFilename):
             finalName = os.path.join(os.path.dirname(sourceFilename), uploadAsFilename)
@@ -99,30 +159,52 @@ class Uploader():
 
 
 class Watcher():
+    """Class for continuously watching for new data products landing in a repo.
+
+    Wathces a repo for the specified data product to land, and runs a callback
+    on the dataId for the data product once it has landed in the repo.
+    """
     cadence = 1  # in seconds
 
     def __init__(self, repoDir, dataProduct, **kwargs):
-        """Watch for data products in a repo.
-        """
         self.repoDir = repoDir
         self.butler = dafPersist.Butler(repoDir)
         self.dataProduct = dataProduct
         self.log = logging.getLogger("watcher")
 
     def _getLatestExpId(self):
+        """Get the expId for the most recent image to land in the repo.
+        """
         return sorted(self.butler.queryMetadata(self.dataProduct, 'expId'))[-1]
 
     def _getDayObsSeqNumFromExpId(self, expId):
+        """Get the (dayObs, seqNum) for the given expId.
+        """
         return self.butler.queryMetadata(self.dataProduct, ['dayObs', 'seqNum'], expId=expId)[0]
 
     def _getLatestImageDataIdAndExpId(self):
+        """Get the dataId and expId for the most recent image in the repo.
+        """
         expId = self._getLatestExpId()
         dayObs, seqNum = self._getDayObsSeqNumFromExpId(expId)
         dataId = {'dayObs': dayObs, 'seqNum': seqNum}
         return dataId, expId
 
     def run(self, callback, durationInSeconds=-1):
-        """Run callback(dataId) each time a new image lands
+        """Wait for the dataProduct to land, then run callback(dataId).
+
+        Note that durationInSeconds is a lower bound, but will be a reasonable
+        approximation vs the infinite alternative.
+
+        Parameters
+        ----------
+        callback : `callable`
+            The method to call, with the latest dataId as the argument.
+
+        durationInSeconds : `int` or `float`
+            How long to run for. This is approximate, as it assumes processing
+            is instant. However, most use-cases will want to just use the -1
+            sentinel value to run forever anyway.
         """
 
         if durationInSeconds == -1:
@@ -149,6 +231,10 @@ class Watcher():
 
 
 class IsrRunner():
+    """Class to run isr for each image that lands in the repo.
+
+    Runs isr via BestEffortIsr, and puts the result in the quickLook rerun.
+    """
 
     def __init__(self, repoDir, **kwargs):
         self.watcher = Watcher(repoDir, 'raw')
@@ -158,15 +244,24 @@ class IsrRunner():
         self.log = logging.getLogger("isrRunner")
 
     def callback(self, dataId):
+        """Method called on each new dataId as it is found in the repo.
+
+        Produce a quickLookExp of the latest image, and butler.put() it to the
+        repo so that downstream processes can find and use it.
+        """
         quickLookExp = self.bestEffort.getExposure(dataId)
         self.butler.put(quickLookExp, 'quickLookExp', dataId)
         self.log.info(f'Put quickLookExp for {dataId}, awaiting next image...')
 
     def run(self):
+        """Run continuously, calling the callback method on the latest dataId.
+        """
         self.watcher.run(self.callback)
 
 
 class ImExaminer():
+    """Class for running the ImExam channel on RubinTV.
+    """
 
     def __init__(self, repoDir):
         self.dataProduct = 'quickLookExp'
@@ -185,6 +280,11 @@ class ImExaminer():
         imexam.plot()
 
     def callback(self, dataId):
+        """Method called on each new dataId as it is found in the repo.
+
+        Plot the quick imExam analysis of the latest image, writing the plot
+        to a temp file, and upload it to Google cloud storage via the uploader.
+        """
         try:
             self.log.info(f'Running imexam on {dataId}')
             tempFilename = tempfile.mktemp(suffix='.png')
@@ -203,10 +303,14 @@ class ImExaminer():
             return None
 
     def run(self):
+        """Run continuously, calling the callback method on the latest dataId.
+        """
         self.watcher.run(self.callback)
 
 
 class SpecExaminer():
+    """Class for running the SpecExam channel on RubinTV.
+    """
 
     def __init__(self, repoDir):
         self.dataProduct = 'quickLookExp'
@@ -225,6 +329,11 @@ class SpecExaminer():
         summary.run()
 
     def callback(self, dataId):
+        """Method called on each new dataId as it is found in the repo.
+
+        Plot the quick spectral reduction of the latest image, writing the plot
+        to a temp file, and upload it to Google cloud storage via the uploader.
+        """
         try:
             if not isDispersedDataId(dataId, self.butler):
                 self.log.info(f'Skipping non dispersed image {dataId}')
@@ -247,10 +356,15 @@ class SpecExaminer():
             return None
 
     def run(self):
+        """Run continuously, calling the callback method on the latest dataId.
+        """
         self.watcher.run(self.callback)
 
 
 class Monitor():
+    """Class for running the monitor channel on RubinTV.
+    """
+
     def __init__(self, repoDir):
         self.dataProduct = 'quickLookExp'
         self.watcher = Watcher(repoDir, self.dataProduct)
@@ -268,6 +382,11 @@ class Monitor():
         plotExp(exp, dataId, self.fig, outputFilename)
 
     def callback(self, dataId):
+        """Method called on each new dataId as it is found in the repo.
+
+        Plot the image for display on the monitor, writing the plot
+        to a temp file, and upload it to Google cloud storage via the uploader.
+        """
         try:
             self.log.info(f'Generating monitor image for {dataId}')
             tempFilename = tempfile.mktemp(suffix='.png')
@@ -286,10 +405,14 @@ class Monitor():
             return None
 
     def run(self):
+        """Run continuously, calling the callback method on the latest dataId.
+        """
         self.watcher.run(self.callback)
 
 
 class MountTorquePlotter():
+    """Class for running the mount torque channel on RubinTV.
+    """
 
     def __init__(self, repoDir):
         if not HAS_EFD_CLIENT:
@@ -306,6 +429,11 @@ class MountTorquePlotter():
         self.fig = plt.figure(figsize=(16, 16))
 
     def callback(self, dataId):
+        """Method called on each new dataId as it is found in the repo.
+
+        Plot the mount torques, pulling data from the EFD, writing the plot
+        to a temp file, and upload it to Google cloud storage via the uploader.
+        """
         try:
             tempFilename = tempfile.mktemp(suffix='.png')
             uploadFilename = _dataIdToFilename(self.channel, dataId)
@@ -320,4 +448,6 @@ class MountTorquePlotter():
             self.log.warn(f"Skipped creating mount plots for {dataId} because {e}")
 
     def run(self):
+        """Run continuously, calling the callback method on the latest dataId.
+        """
         self.watcher.run(self.callback)
