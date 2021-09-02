@@ -19,11 +19,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from lsst.rapid.analysis.rubinTv import ImExaminer
+from lsst.rapid.analysis.rubinTv import ImExaminerChannel
 from lsst.rapid.analysis.utils import checkRubinTvExternalPackages
 
 checkRubinTvExternalPackages()
 print('Running imExaminer...')
 repoDir = '/project/shared/auxTel/rerun/quickLook'
-imExaminer = ImExaminer(repoDir)
+imExaminer = ImExaminerChannel(repoDir)
 imExaminer.run()

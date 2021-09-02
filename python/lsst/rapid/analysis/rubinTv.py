@@ -43,7 +43,7 @@ import lsst.daf.persistence as dafPersist
 from lsst.pex.exceptions import NotFoundError
 from lsst.rapid.analysis.bestEffort import BestEffortIsr
 from lsst.rapid.analysis.imageExaminer import ImageExaminer
-from lsst.rapid.analysis.summarizeImage import SummarizeImage
+from lsst.rapid.analysis.spectrumExaminer import SpectrumExaminer
 from lsst.rapid.analysis.mountTorques import plotMountTracking
 from lsst.rapid.analysis.monitorPlotting import plotExp
 from lsst.atmospec.utils import isDispersedDataId
@@ -259,7 +259,7 @@ class IsrRunner():
         self.watcher.run(self.callback)
 
 
-class ImExaminer():
+class ImExaminerChannel():
     """Class for running the ImExam channel on RubinTV.
     """
 
@@ -269,7 +269,7 @@ class ImExaminer():
         self.uploader = Uploader()
         self.repoDir = repoDir
         self.butler = dafPersist.Butler(repoDir)
-        self.log = logging.getLogger("imExaminer")
+        self.log = logging.getLogger("imExaminerChannel")
         self.channel = 'summit_imexam'
 
     def _imExamine(self, exp, dataId, outputFilename):
@@ -308,7 +308,7 @@ class ImExaminer():
         self.watcher.run(self.callback)
 
 
-class SpecExaminer():
+class SpecExaminerChannel():
     """Class for running the SpecExam channel on RubinTV.
     """
 
@@ -318,14 +318,14 @@ class SpecExaminer():
         self.uploader = Uploader()
         self.repoDir = repoDir
         self.butler = dafPersist.Butler(repoDir)
-        self.log = logging.getLogger("specExaminer")
+        self.log = logging.getLogger("specExaminerChannel")
         self.channel = 'summit_specexam'
 
     def _specExamine(self, exp, dataId, outputFilename):
         if os.path.exists(outputFilename):  # unnecessary now we're using tmpfile?
             self.log.warn(f"Skipping {outputFilename}")
             return
-        summary = SummarizeImage(exp, savePlotAs=outputFilename)
+        summary = SpectrumExaminer(exp, savePlotAs=outputFilename)
         summary.run()
 
     def callback(self, dataId):
@@ -361,7 +361,7 @@ class SpecExaminer():
         self.watcher.run(self.callback)
 
 
-class Monitor():
+class MonitorChannel():
     """Class for running the monitor channel on RubinTV.
     """
 
@@ -371,7 +371,7 @@ class Monitor():
         self.uploader = Uploader()
         self.repoDir = repoDir
         self.butler = dafPersist.Butler(repoDir)
-        self.log = logging.getLogger("monitor")
+        self.log = logging.getLogger("monitorChannel")
         self.channel = 'auxtel_monitor'
         self.fig = plt.figure(figsize=(12, 12))
 
@@ -410,7 +410,7 @@ class Monitor():
         self.watcher.run(self.callback)
 
 
-class MountTorquePlotter():
+class MountTorqueChannel():
     """Class for running the mount torque channel on RubinTV.
     """
 
@@ -424,7 +424,7 @@ class MountTorquePlotter():
         self.repoDir = repoDir
         self.butler = dafPersist.Butler(repoDir)
         self.client = EfdClient('summit_efd')
-        self.log = logging.getLogger("mountTorquePlotter")
+        self.log = logging.getLogger("mountTorqueChannel")
         self.channel = 'auxtel_mount_torques'
         self.fig = plt.figure(figsize=(16, 16))
 

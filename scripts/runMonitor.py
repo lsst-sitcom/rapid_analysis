@@ -19,11 +19,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from lsst.rapid.analysis.rubinTv import Monitor
+from lsst.rapid.analysis.rubinTv import MonitorChannel
 from lsst.rapid.analysis.utils import checkRubinTvExternalPackages
 
 checkRubinTvExternalPackages()
 print('Running monitor...')
 repoDir = '/project/shared/auxTel/rerun/quickLook'
-monitor = Monitor(repoDir)
+monitor = MonitorChannel(repoDir)
 monitor.run()
