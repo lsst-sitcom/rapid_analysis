@@ -28,4 +28,5 @@ from .monitoring import *
 from .animation import *
 from .imageSorter import *
 from .nightReport import *
+from .spectrumExaminer import *
 from .imageExaminer import *

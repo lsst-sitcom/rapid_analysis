@@ -19,11 +19,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from lsst.rapid.analysis.rubinTv import SpecExaminer
+from lsst.rapid.analysis.rubinTv import SpecExaminerChannel
 from lsst.rapid.analysis.utils import checkRubinTvExternalPackages
 
 checkRubinTvExternalPackages()
 print('Running spec examiner...')
 repoDir = '/project/shared/auxTel/rerun/quickLook'
-specExaminer = SpecExaminer(repoDir)
+specExaminer = SpecExaminerChannel(repoDir)
 specExaminer.run()

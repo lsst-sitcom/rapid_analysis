@@ -19,11 +19,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from lsst.rapid.analysis.rubinTv import MountTorquePlotter
+from lsst.rapid.analysis.rubinTv import MountTorqueChannel
 from lsst.rapid.analysis.utils import checkRubinTvExternalPackages
 
 checkRubinTvExternalPackages()
 print('Running mount torque plotter...')
 repoDir = '/project/shared/auxTel/'
-mountTorquePlotter = MountTorquePlotter(repoDir)
+mountTorquePlotter = MountTorqueChannel(repoDir)
 mountTorquePlotter.run()

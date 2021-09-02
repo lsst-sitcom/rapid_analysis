@@ -21,7 +21,7 @@
 # see <https://www.lsstcorp.org/LegalNotices/>.
 #
 
-__all__ = ['SummarizeImage']
+__all__ = ['SpectrumExaminer']
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -40,7 +40,7 @@ from lsst.rapid.analysis.utils import getImageStats
 from astro_metadata_translator import ObservationInfo
 
 
-class SummarizeImage():
+class SpectrumExaminer():
     """Task for the QUICK spectral extraction of single-star dispersed images.
 
     For a full description of how this tasks works, see the run() method.
