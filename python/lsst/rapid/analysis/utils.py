@@ -30,11 +30,14 @@ import lsst.pipe.base as pipeBase
 import lsst.log as lsstLog
 
 from lsst.obs.lsst.translators.lsst import FILTER_DELIMITER
+from lsst.obs.lsst.translators.latiss import AUXTEL_LOCATION
+
 from astro_metadata_translator import ObservationInfo
 
 
 SIGMATOFWHM = 2.0*np.sqrt(2.0*np.log(2.0))
 FWHMTOSIGMA = 1/SIGMATOFWHM
+AUXTEL_LOCATION = AUXTEL_LOCATION  # so it can easily be imported from utils
 
 EFD_CLIENT_MISSING_MSG = ('ImportError: lsst_efd_client not found. Please install with:\n'
                           '    pip install lsst-efd-client')
