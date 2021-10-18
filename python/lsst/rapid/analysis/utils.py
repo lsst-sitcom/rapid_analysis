@@ -19,9 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ['makePolarPlot', 'detectObjectsInExp']
-
-import matplotlib.pyplot as plt
 import numpy as np
 from scipy.ndimage.filters import gaussian_filter
 import lsst.afw.detection as afwDetect
@@ -30,7 +27,14 @@ import lsst.pipe.base as pipeBase
 import lsst.log as lsstLog
 
 from lsst.obs.lsst.translators.lsst import FILTER_DELIMITER
+from lsst.obs.lsst.translators.latiss import AUXTEL_LOCATION
+
 from astro_metadata_translator import ObservationInfo
+
+__all__ = ["SIGMATOFWHM", "FWHMTOSIGMA", "EFD_CLIENT_MISSING_MSG", "GOOGLE_CLOUD_MISSING_MSG",
+           "AUXTEL_LOCATION", "countPixels", "quickSmooth", "argMax2d", "getImageStats", "detectObjectsInExp",
+           "humanNameForCelestialObject", "getFocusFromHeader", "checkRubinTvExternalPackages",
+           ]
 
 
 SIGMATOFWHM = 2.0*np.sqrt(2.0*np.log(2.0))
@@ -178,29 +182,6 @@ def _getAltAzZenithsFromSeqNum(butler, dayObs, seqNumList):
         zeniths.append(90-md['ELSTART'])
         azimuths.append(md['AZSTART'])
     return azimuths, elevations, zeniths
-
-
-def makePolarPlot(butler, dayObs, seqMin, seqMax, seqNumList=None, returnData=False):
-    """Make a polar plot of the azimuth and zenith angles over sequence nums.
-
-    For the given dayObs, plots the range (seqMin..seqMax) or, for
-    dis-contiguous visits, a list of sequence numbers can be specified instead.
-    seqNumList is specified, seqMin and seqMax are ignored.
-    """
-    if not seqNumList:
-        seqNumList = [i for i in range(seqMin, seqMax+1)]
-
-    az, el, zen = _getAltAzZenithsFromSeqNum(butler, dayObs, seqNumList)
-    _ = plt.figure(figsize=(10, 10))
-    ax = plt.subplot(111, polar=True)
-    ax.plot(az, zen, 'or')
-    title = f"Polar coverage - {dayObs} seqNums {seqMin}..{seqMax}"
-    ax.set_title(title, va='bottom')
-    ax.set_theta_zero_location("N")
-    ax.set_theta_direction(-1)
-    ax.set_rlim(0, 90)
-    if returnData:
-        return {'azimuths': az, 'elevations': el, 'zenithAngles': zen}
 
 
 def getFocusFromHeader(exp):
