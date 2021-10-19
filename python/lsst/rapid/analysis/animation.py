@@ -314,7 +314,7 @@ if __name__ == '__main__':
     dataProcuctToPlot = 'quickLookExp'
     repoPath = '/project/shared/auxTel/rerun/quickLook'
     outputPath = '/home/mfl/animatorOutput/main/'
-    outputFilename = 'MarchToJune2021.mp4'
+    outputFilename = 'ddonutMovie.mp4'
 
     butler = dafPersist.Butler(repoPath)
 
@@ -389,7 +389,7 @@ if __name__ == '__main__':
                             useQfmForCentroids=True)
         animator.run()
 
-    else:
+    elif False:
         from myTools import getLatissOnSkyDataIds
         onSkyIds = getLatissOnSkyDataIds(butler)
 
@@ -398,25 +398,60 @@ if __name__ == '__main__':
         onSkyIds.remove({'dayObs': '2021-02-11', 'seqNum': 2})
         onSkyIds.remove({'dayObs': '2021-02-11', 'seqNum': 3})
 
-        days = ["2021-03-03",
-                "2021-03-04",
-                "2021-03-05",
-                "2021-03-08",
-                "2021-03-09",
-                "2021-03-10",
-                "2021-03-11",
-                "2021-03-18",
-                "2021-03-22",
-                "2021-03-23",
-                "2021-04-08",
-                "2021-04-14",
-                "2021-05-21",
-                "2021-05-24",
-                "2021-05-25",
-                "2021-06-07",
-                "2021-06-08",
-                "2021-06-09",
-                "2021-06-10"]
+        days = [#"2021-03-03",
+                # "2021-03-04",
+                # "2021-03-05",
+                # "2021-03-08",
+                # "2021-03-09",
+                # "2021-03-10",
+                # "2021-03-11",
+                # "2021-03-18",
+                # "2021-03-22",
+                # "2021-03-23",
+                # "2021-04-08",
+                # "2021-04-14",
+                # "2021-05-21",
+                # "2021-05-24",
+                # "2021-05-25",
+                # "2021-06-07",
+                # "2021-06-08",
+                # "2021-06-09",
+                # "2021-06-10",
+
+                # '2021-06-25',
+                # '2021-06-28',
+                # '2021-07-02',
+                # '2021-07-06',
+                # '2021-07-07',
+                # '2021-07-08',
+                # '2021-07-12',
+                # '2021-07-13',
+                # '2021-07-16',
+                # '2021-07-20',
+                # '2021-07-27',
+                # '2021-07-28',
+                # '2021-08-04',
+                # '2021-08-05',
+                # '2021-08-16',
+                # '2021-08-17',
+                # '2021-08-18',
+                # '2021-08-20',
+                # '2021-09-02',
+                # '2021-09-03',
+                '2021-09-07',
+                '2021-09-08',
+                '2021-09-09',
+                # '2021-09-13',
+                # '2021-09-22',
+                # '2021-09-30',
+                # '2021-10-01',
+                # '2021-10-04',
+                # '2021-10-05',
+                # '2021-10-06',
+                # '2021-10-07',
+                # '2021-10-08',
+                # '2021-10-09',
+                ]
 
         toUse = []
         for did in onSkyIds:
@@ -428,6 +463,24 @@ if __name__ == '__main__':
                             remakePngs=False,
                             debug=False,
                             clobberVideoAndGif=True,
+                            plotObjectCentroids=True,
+                            useQfmForCentroids=True)
+        animator.run()
+
+    else:
+        dayObs = '2021-10-05'
+        seqNums1 = [s for s in range(152, 162+1)]
+        seqNums2 = [s for s in range(184, 185+1)]
+        seqNums3 = [s for s in range(187, 195+1)]
+        seqNums4 = [s for s in range(196, 207+1)]
+        seqNums = seqNums1 + seqNums2 + seqNums3 + seqNums4
+        dataIds = [{"dayObs": dayObs, "seqNum": s} for s in seqNums]
+        print(dataIds)
+        animator = Animator(butler, dataIds, outputPath, outputFilename,
+                            dataProcuctToPlot=dataProcuctToPlot,
+                            remakePngs=False,
+                            debug=False,
+                            clobberVideoAndGif=False,
                             plotObjectCentroids=True,
                             useQfmForCentroids=True)
         animator.run()
