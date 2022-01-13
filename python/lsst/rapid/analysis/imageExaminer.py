@@ -60,7 +60,8 @@ class ImageExaminer():
                      "airmass": "Airmass",
                      "rotangle": "Rotation Angle",
                      "az": "Azimuth (deg)",
-                     "el": "Elevation (deg)"}
+                     "el": "Elevation (deg)",
+                     "focus": "Focus Z (mm)"}
 
     imageMappings = {"centroid": "Centroid",
                      "maxValue": "Max pixel value",
