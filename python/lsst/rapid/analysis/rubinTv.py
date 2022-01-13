@@ -39,13 +39,14 @@ try:
 except ImportError:
     HAS_EFD_CLIENT = False
 
-import lsst.daf.persistence as dafPersist
 from lsst.pex.exceptions import NotFoundError
 from lsst.rapid.analysis.bestEffort import BestEffortIsr
 from lsst.rapid.analysis.imageExaminer import ImageExaminer
 from lsst.rapid.analysis.spectrumExaminer import SpectrumExaminer
 from lsst.rapid.analysis.mountTorques import plotMountTracking
 from lsst.rapid.analysis.monitorPlotting import plotExp
+from lsst.rapid.analysis.butlerUtils import (makeDefaultLatissButler, LATISS_REPO_LOCATION_MAP, datasetExists,
+                                             getMostRecentDataId, getExpIdFromDayObsSeqNum)
 from lsst.atmospec.utils import isDispersedDataId
 
 CHANNELS = ["summit_imexam", "summit_specexam", "auxtel_mount_torques",
@@ -70,7 +71,13 @@ def _dataIdToFilename(channel, dataId):
     filename : `str`
         The filename
     """
-    filename = f"{PREFIXES[channel]}_dayObs_{dataId['dayObs']}_seqNum_{dataId['seqNum']}.png"
+    def dayIntToDayObsStr(dayInt):
+        dayStr = str(dayInt)
+        assert len(dayStr) == 8
+        return '-'.join([dayStr[0:4], dayStr[4:6], dayStr[6:8]])
+
+    dayObsStr = dayIntToDayObsStr(dataId['day_obs'])
+    filename = f"{PREFIXES[channel]}_dayObs_{dayObsStr}_seqNum_{dataId['seq_num']}.png"
     return filename
 
 
@@ -79,8 +86,8 @@ def _waitForDataProduct(butler, dataProduct, dataId, logger, maxTime=20):
 
     Parameters
     ----------
-    butler : `lsst.daf.persistence.Butler`
-        The name of the RubinTV channel
+    butler : `lsst.daf.butler.Butler`
+        The butler to use.
 
     dataProduct : `str`
         The dataProduct to wait for, e.g. postISRCCD or calexp etc
@@ -99,7 +106,7 @@ def _waitForDataProduct(butler, dataProduct, dataId, logger, maxTime=20):
     cadence = 0.25
     maxLoops = int(maxTime//cadence)
     for retry in range(maxLoops):
-        if butler.datasetExists(dataProduct, dataId):
+        if datasetExists(butler, dataProduct, dataId):
             return butler.get(dataProduct, dataId)
         else:
             sleep(cadence)
@@ -166,28 +173,16 @@ class Watcher():
     """
     cadence = 1  # in seconds
 
-    def __init__(self, repoDir, dataProduct, **kwargs):
-        self.repoDir = repoDir
-        self.butler = dafPersist.Butler(repoDir)
+    def __init__(self, location, dataProduct, **kwargs):
+        self.butler = makeDefaultLatissButler(location)
         self.dataProduct = dataProduct
         self.log = logging.getLogger("watcher")
-
-    def _getLatestExpId(self):
-        """Get the expId for the most recent image to land in the repo.
-        """
-        return sorted(self.butler.queryMetadata(self.dataProduct, 'expId'))[-1]
-
-    def _getDayObsSeqNumFromExpId(self, expId):
-        """Get the (dayObs, seqNum) for the given expId.
-        """
-        return self.butler.queryMetadata(self.dataProduct, ['dayObs', 'seqNum'], expId=expId)[0]
 
     def _getLatestImageDataIdAndExpId(self):
         """Get the dataId and expId for the most recent image in the repo.
         """
-        expId = self._getLatestExpId()
-        dayObs, seqNum = self._getDayObsSeqNumFromExpId(expId)
-        dataId = {'dayObs': dayObs, 'seqNum': seqNum}
+        dataId = getMostRecentDataId(self.butler)
+        expId = getExpIdFromDayObsSeqNum(self.butler, dataId)['exposure']
         return dataId, expId
 
     def run(self, callback, durationInSeconds=-1):
@@ -221,9 +216,8 @@ class Watcher():
                     sleep(self.cadence)
                     continue
                 else:
+                    lastFound = expId
                     callback(dataId)
-
-                lastFound = expId
 
             except NotFoundError as e:  # NotFoundError when filters aren't defined
                 print(f'Skipped displaying {dataId} due to {e}')
@@ -236,11 +230,10 @@ class IsrRunner():
     Runs isr via BestEffortIsr, and puts the result in the quickLook rerun.
     """
 
-    def __init__(self, repoDir, **kwargs):
-        self.watcher = Watcher(repoDir, 'raw')
+    def __init__(self, location, **kwargs):
+        self.watcher = Watcher(location, 'raw')
+        repoDir = LATISS_REPO_LOCATION_MAP[location]
         self.bestEffort = BestEffortIsr(repoDir, **kwargs)
-        outpath = os.path.join(repoDir, 'rerun/quickLook')
-        self.butler = dafPersist.Butler(outpath)
         self.log = logging.getLogger("isrRunner")
 
     def callback(self, dataId):
@@ -249,8 +242,8 @@ class IsrRunner():
         Produce a quickLookExp of the latest image, and butler.put() it to the
         repo so that downstream processes can find and use it.
         """
-        quickLookExp = self.bestEffort.getExposure(dataId)
-        self.butler.put(quickLookExp, 'quickLookExp', dataId)
+        quickLookExp = self.bestEffort.getExposure(dataId)  # noqa: F841 - automatically puts
+        del quickLookExp
         self.log.info(f'Put quickLookExp for {dataId}, awaiting next image...')
 
     def run(self):
@@ -263,12 +256,11 @@ class ImExaminerChannel():
     """Class for running the ImExam channel on RubinTV.
     """
 
-    def __init__(self, repoDir):
+    def __init__(self, location):
         self.dataProduct = 'quickLookExp'
-        self.watcher = Watcher(repoDir, self.dataProduct)
+        self.watcher = Watcher(location, self.dataProduct)
         self.uploader = Uploader()
-        self.repoDir = repoDir
-        self.butler = dafPersist.Butler(repoDir)
+        self.butler = makeDefaultLatissButler(location)
         self.log = logging.getLogger("imExaminerChannel")
         self.channel = 'summit_imexam'
 
@@ -312,12 +304,11 @@ class SpecExaminerChannel():
     """Class for running the SpecExam channel on RubinTV.
     """
 
-    def __init__(self, repoDir):
+    def __init__(self, location):
         self.dataProduct = 'quickLookExp'
-        self.watcher = Watcher(repoDir, self.dataProduct)
+        self.watcher = Watcher(location, self.dataProduct)
         self.uploader = Uploader()
-        self.repoDir = repoDir
-        self.butler = dafPersist.Butler(repoDir)
+        self.butler = makeDefaultLatissButler(location)
         self.log = logging.getLogger("specExaminerChannel")
         self.channel = 'summit_specexam'
 
@@ -352,7 +343,7 @@ class SpecExaminerChannel():
             self.log.info('Upload complete')
 
         except Exception as e:
-            self.log.info(f"Skipped imExam on {dataId} because {e}")
+            self.log.warn(f"Skipped specExam on {dataId} because {e}")
             return None
 
     def run(self):
@@ -365,12 +356,11 @@ class MonitorChannel():
     """Class for running the monitor channel on RubinTV.
     """
 
-    def __init__(self, repoDir):
+    def __init__(self, location):
         self.dataProduct = 'quickLookExp'
-        self.watcher = Watcher(repoDir, self.dataProduct)
+        self.watcher = Watcher(location, self.dataProduct)
         self.uploader = Uploader()
-        self.repoDir = repoDir
-        self.butler = dafPersist.Butler(repoDir)
+        self.butler = makeDefaultLatissButler(location)
         self.log = logging.getLogger("monitorChannel")
         self.channel = 'auxtel_monitor'
         self.fig = plt.figure(figsize=(12, 12))
@@ -414,15 +404,14 @@ class MountTorqueChannel():
     """Class for running the mount torque channel on RubinTV.
     """
 
-    def __init__(self, repoDir):
+    def __init__(self, location):
         if not HAS_EFD_CLIENT:
             from lsst.rapid.analysis.utils import EFD_CLIENT_MISSING_MSG
             raise RuntimeError(EFD_CLIENT_MISSING_MSG)
         self.dataProduct = 'raw'
-        self.watcher = Watcher(repoDir, self.dataProduct)
+        self.watcher = Watcher(location, self.dataProduct)
         self.uploader = Uploader()
-        self.repoDir = repoDir
-        self.butler = dafPersist.Butler(repoDir)
+        self.butler = makeDefaultLatissButler(location)
         self.client = EfdClient('summit_efd')
         self.log = logging.getLogger("mountTorqueChannel")
         self.channel = 'auxtel_mount_torques'
@@ -437,7 +426,7 @@ class MountTorqueChannel():
         try:
             tempFilename = tempfile.mktemp(suffix='.png')
             uploadFilename = _dataIdToFilename(self.channel, dataId)
-            plotted = plotMountTracking(dataId, self.butler, self.client, self.fig, tempFilename, 2, self.log)
+            plotted = plotMountTracking(dataId, self.butler, self.client, self.fig, tempFilename, 3, self.log)
 
             if plotted:  # skips many image types and short exps
                 self.log.info("Uploading mount torque plot to storage bucket")

@@ -42,7 +42,7 @@ def _getEfdData(client, dataSeries, startTime, endTime):
     return loop.run_until_complete(client.select_time_series(dataSeries, ['*'], startTime, endTime))
 
 
-def plotMountTracking(dataId, butler, client, figure, saveFilename, butlerGeneration, logger):
+def plotMountTracking(dataId, butler, client, figure, saveFilename, logger):
     """Queries EFD for given exposure and checks if there were tracking errors.
 
     Parameters
@@ -50,7 +50,7 @@ def plotMountTracking(dataId, butler, client, figure, saveFilename, butlerGenera
     dataId : `dict`
         The dataId for quich to plot the mount torques.
 
-    butler : `lsst.daf.persistence.Butler` or `lsst.daf.butler.Butler`
+    butler : `lsst.daf.butler.Butler`
         The butler to use to retrieve the image metadata.
 
     client : `lsst_efd_client.Client`
@@ -62,9 +62,6 @@ def plotMountTracking(dataId, butler, client, figure, saveFilename, butlerGenera
 
     saveFilename : `str`
         Full path and filename to save the plot to.
-
-    butlerGeneration : `int`
-        The butler generation (2 or 3).
 
     logger : `lsst.log.Log`
         The logger.
@@ -80,12 +77,8 @@ def plotMountTracking(dataId, butler, client, figure, saveFilename, butlerGenera
 
     start = time.time()
 
-    if butlerGeneration == 3:
-        mData = butler.get('raw.metadata', **dataId)
-        dataIdString = str(dataId['expId'])
-    else:
-        mData = butler.get('raw_md', **dataId)
-        dataIdString = f"{dataId['dayObs']}-{dataId['seqNum']}"
+    mData = butler.get('raw.metadata', dataId)
+    dataIdString = str(dataId['expId'])
 
     imgType = mData['IMGTYPE']
     tStart = mData['DATE-BEG']
@@ -96,7 +89,7 @@ def plotMountTracking(dataId, butler, client, figure, saveFilename, butlerGenera
     logger.debug(f"dataId={dataIdString}, imgType={imgType}, Times={tStart}, {tEnd}")
 
     if imgType not in GOOD_IMAGE_TYPES:
-        logger.info(f'Skipping image type {imgType}')
+        logger.info(f'Skipping image type {imgType} for {dataIdString}')
         return False
     if exptime < 1.99:
         logger.info('Skipping sub 2s expsoure')

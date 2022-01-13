@@ -24,6 +24,6 @@ from lsst.rapid.analysis.utils import checkRubinTvExternalPackages
 
 checkRubinTvExternalPackages()
 print('Running imExaminer...')
-repoDir = '/project/shared/auxTel/rerun/quickLook'
-imExaminer = ImExaminerChannel(repoDir)
+location = 'summit'
+imExaminer = ImExaminerChannel(location)
 imExaminer.run()
