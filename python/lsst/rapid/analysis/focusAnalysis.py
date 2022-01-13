@@ -19,8 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import os
-import lsst.daf.persistence as dafPersist
 import lsst.geom as geom
 
 import matplotlib.pyplot as plt
@@ -42,7 +40,8 @@ from lsst.rapid.analysis.utils import FWHMTOSIGMA, SIGMATOFWHM
 from lsst.atmospec.utils import isDispersedExp
 
 from lsst.pipe.tasks.quickFrameMeasurement import QuickFrameMeasurementTask, QuickFrameMeasurementTaskConfig
-
+from lsst.rapid.analysis.butlerUtils import (makeDefaultLatissButler, getExpRecordFromDataId,
+                                             LATISS_REPO_LOCATION_MAP)
 
 __all__ = ["SpectralFocusAnalyzer", "NonSpectralFocusAnalyzer"]
 
@@ -56,9 +55,9 @@ class FitResult:
 
 class SpectralFocusAnalyzer():
 
-    def __init__(self, repoDir, **kwargs):
-
-        self._butler = dafPersist.Butler(os.path.join(repoDir, "rerun/quickLook/"))
+    def __init__(self, location, **kwargs):
+        self.butler = makeDefaultLatissButler(location)
+        repoDir = LATISS_REPO_LOCATION_MAP[location]
         self._bestEffort = BestEffortIsr(repoDir, **kwargs)
         qfmTaskConfig = QuickFrameMeasurementTaskConfig()
         self._quickMeasure = QuickFrameMeasurementTask(config=qfmTaskConfig)
@@ -118,14 +117,13 @@ class SpectralFocusAnalyzer():
 
         for seqNum in seqNums:
             fitData[seqNum] = {}
-            if self._butler.datasetExists('quickLookExp', **{'dayObs': dayObs, 'seqNum': seqNum}):
-                exp = self._butler.get('quickLookExp', **{'dayObs': dayObs, 'seqNum': seqNum})
-            else:
-                exp = self._bestEffort.getExposure({'dayObs': dayObs, 'seqNum': seqNum})
+            dataId = {'day_obs': dayObs, 'seq_num': seqNum, 'detector': 0}
+            exp = self._bestEffort.getExposure(dataId)
 
             # sanity checking
             filt = exp.getFilter().getName()
-            obj = self._butler.queryMetadata('raw', 'object', dayObs=dayObs, seqNum=seqNum)[0]
+            expRecord = getExpRecordFromDataId(self.butler, dataId)
+            obj = expRecord.target_name
             objects.add(obj)
             filters.add(filt)
             assert isDispersedExp(exp), f"Image is not dispersed! (filter = {filt})"
@@ -264,8 +262,9 @@ class SpectralFocusAnalyzer():
 
 class NonSpectralFocusAnalyzer():
 
-    def __init__(self, repoDir, **kwargs):
-        self._butler = dafPersist.Butler(repoDir)
+    def __init__(self, location, **kwargs):
+        self.butler = makeDefaultLatissButler(location)
+        repoDir = LATISS_REPO_LOCATION_MAP[location]
         self._bestEffort = BestEffortIsr(repoDir, **kwargs)
 
     @staticmethod
@@ -294,17 +293,13 @@ class NonSpectralFocusAnalyzer():
 
         for seqNum in seqNums:
             fitData[seqNum] = {}
-            butler = self._butler
-
-            if butler.datasetExists('quickLookExp', {'dayObs': dayObs, 'seqNum': seqNum}):
-                exp = butler.get('quickLookExp', {'dayObs': dayObs, 'seqNum': seqNum})
-            else:
-                print(f"quickLookExp not found for {seqNum}, reproducing...")
-                exp = self._bestEffort.getExposure({'dayObs': dayObs, 'seqNum': seqNum})
+            dataId = {'day_obs': dayObs, 'seq_num': seqNum, 'detector': 0}
+            exp = self._bestEffort.getExposure(dataId)
 
             # sanity/consistency checking
             filt = exp.getFilterLabel().physicalLabel
-            obj = butler.queryMetadata('raw', 'object', dayObs=dayObs, seqNum=seqNum)[0]
+            expRecord = getExpRecordFromDataId(self.butler, dataId)
+            obj = expRecord.target_name
             objects.add(obj)
             filters.add(filt)
             if doCheckDispersed:
@@ -406,12 +401,12 @@ class NonSpectralFocusAnalyzer():
 
         return results
 
+
 # if __name__ == '__main__':
-#     repoDir = '/project/shared/auxTel/'
-#     analyzer = SpectralFocusAnalyzer(repoDir)
+#     location = 'NCSA'
+#     analyzer = SpectralFocusAnalyzer(location)
 #     # dataId = {'dayObs': '2020-02-20', 'seqNum': 485}  # direct image
-#     dataId = {'dayObs': '2020-03-12'}
+#     dataId = {'day_obs': 20200312}
 #     seqNums = [121, 122]
-#     data, filt, obj = analyzer.getFocusData(dataId['dayObs'],
-#                                             seqNums, doDisplay=True)
-#     analyzer.fitDataAndPlot(data, filt, obj)
+#     analyzer.getFocusData(dataId['day_obs'], seqNums, doDisplay=True)
+#     analyzer.fitDataAndPlot()
