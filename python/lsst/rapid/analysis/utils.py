@@ -34,7 +34,7 @@ from astro_metadata_translator import ObservationInfo
 __all__ = ["SIGMATOFWHM", "FWHMTOSIGMA", "EFD_CLIENT_MISSING_MSG", "GOOGLE_CLOUD_MISSING_MSG",
            "AUXTEL_LOCATION", "countPixels", "quickSmooth", "argMax2d", "getImageStats", "detectObjectsInExp",
            "humanNameForCelestialObject", "getFocusFromHeader", "checkRubinTvExternalPackages",
-           ]
+           "dayObsIntToString"]
 
 
 SIGMATOFWHM = 2.0*np.sqrt(2.0*np.log(2.0))
@@ -86,6 +86,12 @@ def argMax2d(array):
     return maxCoords[0], uniqueMaximum, maxCoords[1:]
 
 
+def dayObsIntToString(dayObs):
+    assert isinstance(dayObs, int)
+    dStr = str(dayObs)
+    return '-'.join([dStr[0:4], dStr[4:6], dStr[6:8]])
+
+
 def getImageStats(exp):
     result = pipeBase.Struct()
 
@@ -118,6 +124,7 @@ def getImageStats(exp):
     result.rotangle = rotangle
     result.az = az
     result.el = el
+    result.focus = md.get('FOCUSZ')
 
     data = exp.image.array
     result.maxValue = np.max(data)
@@ -177,7 +184,7 @@ def humanNameForCelestialObject(objName):
 def _getAltAzZenithsFromSeqNum(butler, dayObs, seqNumList):
     azimuths, elevations, zeniths = [], [], []
     for seqNum in seqNumList:
-        md = butler.get("raw_md", dayObs=dayObs, seqNum=seqNum)
+        md = butler.get('raw.metadata', day_obs=dayObs, seq_num=seqNum, detector=0)
         elevations.append(md['ELSTART'])
         zeniths.append(90-md['ELSTART'])
         azimuths.append(md['AZSTART'])
