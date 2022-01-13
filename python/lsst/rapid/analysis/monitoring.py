@@ -19,14 +19,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import os
 import numpy as np
-import lsst.daf.persistence as dafPersist
 import lsst.afw.cameraGeom.utils as cgUtils
 from lsst.pex.exceptions import NotFoundError
 from .bestEffort import BestEffortIsr
 import lsst.geom as geom
 from time import sleep
+from lsst.rapid.analysis.butlerUtils import (makeDefaultLatissButler, LATISS_REPO_LOCATION_MAP,
+                                             getMostRecentDataId, getExpIdFromDayObsSeqNum,
+                                             getExpRecordFromDataId)
 
 # TODO: maybe add option to create display and return URL?
 
@@ -35,27 +36,21 @@ class Monitor():
     cadence = 1  # in seconds
     runIsr = True
 
-    def __init__(self, repoDir, fireflyDisplay, **kwargs):
+    def __init__(self, location, fireflyDisplay, **kwargs):
         """"""
-        self.repoDir = repoDir
+        self.butler = makeDefaultLatissButler(location)
         self.display = fireflyDisplay
+        repoDir = LATISS_REPO_LOCATION_MAP[location]
         self.bestEffort = BestEffortIsr(repoDir, **kwargs)
         self.writeQuickLookImages = None
-        outpath = os.path.join(repoDir, 'rerun/quickLook')
-        self.butler = dafPersist.Butler(outpath)
         self.overlayAmps = False  # do the overlay?
         self.measureFromChipCenter = False
 
-    def _getLatestExpId(self):
-        return sorted(self.butler.queryMetadata('raw', 'expId'))[-1]
-
-    def _getDayObsSeqNumFromExpId(self, expId):
-        return self.butler.queryMetadata('raw', ['dayObs', 'seqNum'], expId=expId)[0]
-
     def _getLatestImageDataIdAndExpId(self):
-        expId = self._getLatestExpId()
-        dayObs, seqNum = self._getDayObsSeqNumFromExpId(expId)
-        dataId = {'dayObs': dayObs, 'seqNum': seqNum}
+        """Get the dataId and expId for the most recent image in the repo.
+        """
+        dataId = getMostRecentDataId(self.butler)
+        expId = getExpIdFromDayObsSeqNum(self.butler, dataId)['exposure']
         return dataId, expId
 
     def _calcImageStats(self, exp):
@@ -78,11 +73,12 @@ class Monitor():
 
         elements = []
 
-        imageType = self.butler.queryMetadata('raw', 'imageType', dataId)[0]
+        expRecord = getExpRecordFromDataId(self.butler, dataId)
+        imageType = expRecord.observation_type
         obj = None
         if imageType.upper() not in ['BIAS', 'DARK', 'FLAT']:
             try:
-                obj = self.butler.queryMetadata('raw', 'OBJECT', dataId)[0]
+                obj = expRecord.target_name
                 obj = obj.replace(' ', '')
             except Exception:
                 pass
@@ -140,10 +136,6 @@ class Monitor():
                     exp = self.bestEffort.getExposure(dataId)
                 else:
                     exp = self.butler.get('raw', **dataId)
-
-                if self.writeQuickLookImages:
-                    print(f"Writing quickLookExp for {dataId}")
-                    self.butler.put(exp, "quickLookExp", dataId)
 
                 # TODO: add logic to deal with amp overlay and chip center
                 # being mutually exclusive
