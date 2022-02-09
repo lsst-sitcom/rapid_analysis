@@ -24,6 +24,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.time import Time
 import asyncio
+import lsst.rapid.analysis.butlerUtils as bu
+from .utils import dayObsIntToString
 
 try:
     from lsst_efd_client import merge_packed_time_series as mpts
@@ -39,7 +41,7 @@ def _getEfdData(client, dataSeries, startTime, endTime):
     This exists so that the top level functions don't all have to be async def.
     """
     loop = asyncio.get_event_loop()
-    return loop.run_until_complete(client.select_time_series(dataSeries, ['*'], startTime, endTime))
+    return loop.run_until_complete(client.select_time_series(dataSeries, ['*'], startTime.utc, endTime.utc))
 
 
 def plotMountTracking(dataId, butler, client, figure, saveFilename, logger):
@@ -78,7 +80,10 @@ def plotMountTracking(dataId, butler, client, figure, saveFilename, logger):
     start = time.time()
 
     mData = butler.get('raw.metadata', dataId)
-    dataIdString = str(dataId['expId'])
+    dsDict = bu.getDayObsSeqNumFromExposureId(butler, dataId)
+    dayString = dayObsIntToString(dsDict.get('day_obs'))
+    seqNumString = str(dsDict.get('seq_num'))
+    dataIdString = f"{dayString} - seqNum {seqNumString}"
 
     imgType = mData['IMGTYPE']
     tStart = mData['DATE-BEG']
@@ -115,13 +120,13 @@ def plotMountTracking(dataId, butler, client, figure, saveFilename, logger):
     torques = _getEfdData(client, "lsst.sal.ATMCS.measuredTorque", t_start, t_end)
     logger.debug("Length of time series", len(mount_position))
 
-    az = mpts(mount_position, 'azimuthCalculatedAngle', stride=1, internal_time_scale="utc")
-    el = mpts(mount_position, 'elevationCalculatedAngle', stride=1, internal_time_scale="utc")
-    rot = mpts(nasmyth_position, 'nasmyth2CalculatedAngle', stride=1, internal_time_scale="utc")
-    az_torque_1 = mpts(torques, 'azimuthMotor1Torque', stride=1, internal_time_scale="utc")
-    az_torque_2 = mpts(torques, 'azimuthMotor2Torque', stride=1, internal_time_scale="utc")
-    el_torque = mpts(torques, 'elevationMotorTorque', stride=1, internal_time_scale="utc")
-    rot_torque = mpts(torques, 'nasmyth2MotorTorque', stride=1, internal_time_scale="utc")
+    az = mpts(mount_position, 'azimuthCalculatedAngle', stride=1)
+    el = mpts(mount_position, 'elevationCalculatedAngle', stride=1)
+    rot = mpts(nasmyth_position, 'nasmyth2CalculatedAngle', stride=1)
+    az_torque_1 = mpts(torques, 'azimuthMotor1Torque', stride=1)
+    az_torque_2 = mpts(torques, 'azimuthMotor2Torque', stride=1)
+    el_torque = mpts(torques, 'elevationMotorTorque', stride=1)
+    rot_torque = mpts(torques, 'nasmyth2MotorTorque', stride=1)
 
     end = time.time()
     elapsed = end-start
