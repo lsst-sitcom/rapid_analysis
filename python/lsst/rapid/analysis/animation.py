@@ -166,6 +166,10 @@ class Animator():
                 self.makePng(dataId, self.dataIdToFilename(dataId))
 
         # stage files in temp dir with numbers prepended to filenames
+        if not self.dataIdList:
+            print('No files to animate - nothing to do')
+            return
+
         logger.info('Copying files to ordered temp dir...')
         pngFilesOriginal = [self.dataIdToFilename(d) for d in self.dataIdList]
         for filename in pngFilesOriginal:  # these must all now exist, but let's assert just in case
