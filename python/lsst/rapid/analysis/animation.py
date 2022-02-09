@@ -236,7 +236,6 @@ class Animator():
         if self.debug:
             print(f"Creating {saveFilename}")
 
-        self.disp.erase()
         self.fig.clear()
 
         # must always keep exp unsmoothed for the centroiding via qfm
@@ -325,7 +324,7 @@ class Animator():
 def animateDay(butler, dayObs, outputPath, dataProcuctToPlot='quickLookExp'):
     outputFilename = f'{dayObs}.mp4'
 
-    onSkyIds = getLatissOnSkyDataIds(butler, startDate=dayObs, endDate=dayObs, expanded=True)
+    onSkyIds = getLatissOnSkyDataIds(butler, startDate=dayObs, endDate=dayObs)
     print(f"Found {len(onSkyIds)} on sky ids for {dayObs}")
 
     onSkyIds = [updateDataIdOrDataCord(dataId, detector=0) for dataId in onSkyIds]
