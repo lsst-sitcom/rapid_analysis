@@ -426,7 +426,7 @@ class MountTorqueChannel():
         try:
             tempFilename = tempfile.mktemp(suffix='.png')
             uploadFilename = _dataIdToFilename(self.channel, dataId)
-            plotted = plotMountTracking(dataId, self.butler, self.client, self.fig, tempFilename, 3, self.log)
+            plotted = plotMountTracking(dataId, self.butler, self.client, self.fig, tempFilename, self.log)
 
             if plotted:  # skips many image types and short exps
                 self.log.info("Uploading mount torque plot to storage bucket")
