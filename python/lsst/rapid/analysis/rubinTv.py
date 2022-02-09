@@ -404,7 +404,7 @@ class MountTorqueChannel():
     """Class for running the mount torque channel on RubinTV.
     """
 
-    def __init__(self, location):
+    def __init__(self, location, doRaise=False):
         if not HAS_EFD_CLIENT:
             from lsst.rapid.analysis.utils import EFD_CLIENT_MISSING_MSG
             raise RuntimeError(EFD_CLIENT_MISSING_MSG)
@@ -416,6 +416,7 @@ class MountTorqueChannel():
         self.log = logging.getLogger("mountTorqueChannel")
         self.channel = 'auxtel_mount_torques'
         self.fig = plt.figure(figsize=(16, 16))
+        self.doRaise = doRaise
 
     def callback(self, dataId):
         """Method called on each new dataId as it is found in the repo.
@@ -434,6 +435,8 @@ class MountTorqueChannel():
                 self.log.info('Upload complete')
 
         except Exception as e:
+            if self.doRaise:
+                raise RuntimeError from e
             self.log.warn(f"Skipped creating mount plots for {dataId} because {e}")
 
     def run(self):

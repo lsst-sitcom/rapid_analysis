@@ -25,5 +25,5 @@ from lsst.rapid.analysis.utils import checkRubinTvExternalPackages
 checkRubinTvExternalPackages()
 print('Running mount torque plotter...')
 location = 'summit'
-mountTorquePlotter = MountTorqueChannel(location)
+mountTorquePlotter = MountTorqueChannel(location, doRaise=False)
 mountTorquePlotter.run()
