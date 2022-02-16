@@ -34,7 +34,7 @@ from astro_metadata_translator import ObservationInfo
 __all__ = ["SIGMATOFWHM", "FWHMTOSIGMA", "EFD_CLIENT_MISSING_MSG", "GOOGLE_CLOUD_MISSING_MSG",
            "AUXTEL_LOCATION", "countPixels", "quickSmooth", "argMax2d", "getImageStats", "detectObjectsInExp",
            "humanNameForCelestialObject", "getFocusFromHeader", "checkRubinTvExternalPackages",
-           "dayObsIntToString"]
+           "dayObsIntToString", "dayObsSeqNumToVisitId"]
 
 
 SIGMATOFWHM = 2.0*np.sqrt(2.0*np.log(2.0))
@@ -90,6 +90,30 @@ def dayObsIntToString(dayObs):
     assert isinstance(dayObs, int)
     dStr = str(dayObs)
     return '-'.join([dStr[0:4], dStr[4:6], dStr[6:8]])
+
+
+def dayObsSeqNumToVisitId(dayObs, seqNum):
+    """Get the visit id for a given dayObs/seqNum.
+
+    dayObs : int
+        The dayObs.
+
+    seqNum : int
+        The seqNum.
+
+    Returns
+    -------
+    visitId : int
+        The visitId.
+
+    Notes
+    -----
+    TODO: Remove this horrible hack once DM-30948 makes this possible
+    programatically/via the butler.
+    """
+    if dayObs < 19700101 or dayObs > 35000101:
+        raise ValueError(f'dayObs value {dayObs} outside plausible range')
+    return int(f"{dayObs}{seqNum:05}")
 
 
 def getImageStats(exp):
