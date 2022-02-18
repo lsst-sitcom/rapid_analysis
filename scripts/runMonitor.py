@@ -25,5 +25,5 @@ from lsst.rapid.analysis.utils import checkRubinTvExternalPackages
 checkRubinTvExternalPackages()
 print('Running monitor...')
 location = 'summit'
-monitor = MonitorChannel(location)
+monitor = MonitorChannel(location, doRaise=False)
 monitor.run()

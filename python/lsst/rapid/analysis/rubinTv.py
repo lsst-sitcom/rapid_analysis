@@ -356,7 +356,7 @@ class MonitorChannel():
     """Class for running the monitor channel on RubinTV.
     """
 
-    def __init__(self, location):
+    def __init__(self, location, doRaise=False):
         self.dataProduct = 'quickLookExp'
         self.watcher = Watcher(location, self.dataProduct)
         self.uploader = Uploader()
@@ -364,6 +364,7 @@ class MonitorChannel():
         self.log = logging.getLogger("monitorChannel")
         self.channel = 'auxtel_monitor'
         self.fig = plt.figure(figsize=(12, 12))
+        self.doRaise = doRaise
 
     def _plotImage(self, exp, dataId, outputFilename):
         if os.path.exists(outputFilename):  # unnecessary now we're using tmpfile
@@ -391,6 +392,8 @@ class MonitorChannel():
             self.log.info('Upload complete')
 
         except Exception as e:
+            if self.doRaise:
+                raise RuntimeError from e
             self.log.warn(f"Skipped monitor image for {dataId} because {e}")
             return None
 
