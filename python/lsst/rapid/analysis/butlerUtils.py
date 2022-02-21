@@ -186,7 +186,7 @@ def getMostRecentDayObs(butler):
     return recentDay
 
 
-def getSeqNumsForDayObs(butler, day_obs):
+def getSeqNumsForDayObs(butler, day_obs, extraWhere=''):
     """Get a list of all seq_nums taken on a given day_obs.
 
     Parameters
@@ -197,6 +197,9 @@ def getSeqNumsForDayObs(butler, day_obs):
     day_obs : `int` or `str`
         The day_obs for which the seq_nums are desired.
 
+    extraWhere : `str`
+        Any extra where conditions to add to the queryDimensionRecords call.
+
     Returns
     -------
     seq_nums : `iterable`
@@ -205,6 +208,9 @@ def getSeqNumsForDayObs(butler, day_obs):
     """
     day_obs = sanitize_day_obs(day_obs)
     where = "exposure.day_obs=day_obs"
+    if extraWhere:
+        extraWhere = extraWhere.replace('"', '\'')
+        where += f" and {extraWhere}"
     records = butler.registry.queryDimensionRecords("exposure",
                                                     where=where,
                                                     bind={'day_obs': day_obs},
