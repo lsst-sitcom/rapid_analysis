@@ -49,7 +49,7 @@ from lsst.rapid.analysis.butlerUtils import (makeDefaultLatissButler,
                                              getExpId,
                                              datasetExists,
                                              sortRecordsByAttribute,
-                                             getDaysOnSky,
+                                             getDaysWithData,
                                              getExpIdFromDayObsSeqNum,
                                              updateDataIdOrDataCord,
                                              fillDataId,
@@ -89,22 +89,22 @@ class ButlerUtilsTestCase(lsst.utils.tests.TestCase):
 
         # butler stuff
         butler = makeDefaultLatissButler(location)
-        self.assertTrue(isinstance(butler, dafButler.Butler))
+        self.assertIsInstance(butler, dafButler.Butler)
         self.butler = butler
 
         # dict-like dataIds
         self.rawDataId = getMostRecentDataId(self.butler)
         self.fullId = fillDataId(butler, self.rawDataId)
-        self.assertTrue('exposure' in self.fullId)
-        self.assertTrue('day_obs' in self.fullId)
-        self.assertTrue('seq_num' in self.fullId)
+        self.assertIn('exposure', self.fullId)
+        self.assertIn('day_obs', self.fullId)
+        self.assertIn('seq_num', self.fullId)
         self.expIdOnly = {'exposure': self.fullId['exposure'], 'detector': 0}
         self.dayObsSeqNumIdOnly = {'day_obs': getDayObs(self.fullId), 'seq_num': getSeqNum(self.fullId),
                                    'detector': 0}
 
         # expRecords
         self.expRecordNoDetector = getExpRecordFromDataId(self.butler, self.rawDataId)
-        self.assertTrue(isinstance(self.expRecordNoDetector, dafButler.dimensions.DimensionRecord))
+        self.assertIsInstance(self.expRecordNoDetector, dafButler.dimensions.DimensionRecord)
         self.assertFalse(hasattr(self.expRecordNoDetector, 'detector'))
         # just a crosscheck on the above to make sure other things are correct
         self.assertTrue(hasattr(self.expRecordNoDetector, 'instrument'))
@@ -120,11 +120,11 @@ class ButlerUtilsTestCase(lsst.utils.tests.TestCase):
         self.rawDataIdNoDayObSeqNum = rawDataIdNoDayObSeqNum
         self.dataCoordMinimal = butler.registry.expandDataId(self.rawDataIdNoDayObSeqNum, detector=0)
         self.dataCoordFullView = butler.registry.expandDataId(self.rawDataIdNoDayObSeqNum, detector=0).full
-        self.assertTrue(isinstance(self.dataCoordMinimal, dafButler.dimensions.DataCoordinate))
+        self.assertIsInstance(self.dataCoordMinimal, dafButler.dimensions.DataCoordinate)
         # NB the type check below is currently using a non-public API, but
         # at present there isn't a good alternative
         viewType = dafButler.core.dimensions._coordinate._DataCoordinateFullView
-        self.assertTrue(isinstance(self.dataCoordFullView, viewType))
+        self.assertIsInstance(self.dataCoordFullView, viewType)
 
     def test_LATISS_REPO_LOCATION_MAP(self):
         self.assertTrue(LATISS_REPO_LOCATION_MAP is not None)
@@ -164,7 +164,7 @@ class ButlerUtilsTestCase(lsst.utils.tests.TestCase):
         # just a basic sanity check here as we can't know the value,
         # but at least check something is returned, and is plausible
         recentDay = getMostRecentDayObs(self.butler)
-        self.assertTrue(isinstance(recentDay, int))
+        self.assertIsInstance(recentDay, int)
         self.assertTrue(recentDay >= RECENT_DAY)
         # some test data might be set a millennium in the future, i.e.
         # the year wouldd be 2XXX+1000, so set to y4k just in case
@@ -173,26 +173,26 @@ class ButlerUtilsTestCase(lsst.utils.tests.TestCase):
     def test_getSeqNumsForDayObs(self):
         emptyDay = 19990101
         seqnums = getSeqNumsForDayObs(self.butler, emptyDay)
-        self.assertTrue(isinstance(seqnums, Iterable))
+        self.assertIsInstance(seqnums, Iterable)
         self.assertEqual(len(list(seqnums)), 0)
 
         recentDay = getMostRecentDayObs(self.butler)
         seqnums = getSeqNumsForDayObs(self.butler, recentDay)
-        self.assertTrue(isinstance(seqnums, Iterable))
+        self.assertIsInstance(seqnums, Iterable)
         self.assertTrue(len(list(seqnums)) >= 1)
 
     def test_getMostRecentDataId(self):
         # we can't know the values, but it should always return something
         # and the dict and int forms should always have certain keys and agree
         dataId = getMostRecentDataId(self.butler)
-        self.assertTrue(isinstance(dataId, dict))
-        self.assertTrue('day_obs' in dataId)
-        self.assertTrue('seq_num' in dataId)
+        self.assertIsInstance(dataId, dict)
+        self.assertIn('day_obs', dataId)
+        self.assertIn('seq_num', dataId)
         self.assertTrue('exposure' in dataId or 'exposure.id' in dataId)
 
     def test_getDatasetRefForDataId(self):
         dRef = getDatasetRefForDataId(self.butler, 'raw', self.rawDataId)
-        self.assertTrue(isinstance(dRef, lsst.daf.butler.core.datasets.ref.DatasetRef))
+        self.assertIsInstance(dRef, lsst.daf.butler.core.datasets.ref.DatasetRef)
 
     def test__dayobs_present(self):
         goods = [{'day_obs': 123}, {'exposure.day_obs': 234}, {'day_obs': 345, 'otherkey': -1}]
@@ -267,10 +267,10 @@ class ButlerUtilsTestCase(lsst.utils.tests.TestCase):
         #     sortedIds = sortRecordsByAttribute(ids, 'seq_num')
         return
 
-    def test_getDaysOnSky(self):
-        days = getDaysOnSky(self.butler)
+    def test_getDaysWithData(self):
+        days = getDaysWithData(self.butler)
         self.assertTrue(len(days) >= 0)
-        self.assertTrue(isinstance(days[0], int))
+        self.assertIsInstance(days[0], int)
         return
 
     def test_getExpIdFromDayObsSeqNum(self):
@@ -306,7 +306,7 @@ class ButlerUtilsTestCase(lsst.utils.tests.TestCase):
 
     def test_getExpRecordFromDataId(self):
         record = getExpRecordFromDataId(self.butler, self.rawDataId)
-        self.assertTrue(isinstance(record, dafButler.dimensions.DimensionRecord))
+        self.assertIsInstance(record, dafButler.dimensions.DimensionRecord)
         return
 
     def test_getDayObsSeqNumFromExposureId(self):
@@ -325,12 +325,17 @@ class ButlerUtilsTestCase(lsst.utils.tests.TestCase):
         # day does help a lot, so probably OK like that, and should speed up
         # with middleware improvements in the future, and we should ensure
         # that they don't break this, so inclined to leave for now
-        ids = getLatissOnSkyDataIds(self.butler, startDate=RECENT_DAY, endDate=RECENT_DAY)
-        self.assertTrue(len(ids) >= 0)
+        dayToUse = getDaysWithData(self.butler)[-1]
+        # the most recent day with data might only be biases or flats so make
+        # sure to override the default of skipping biases, darks & flats
+        skipTypes = ()
+        ids = getLatissOnSkyDataIds(self.butler, skipTypes=skipTypes, startDate=dayToUse, endDate=dayToUse)
+        self.assertTrue(len(ids) > 0)
         self.assertTrue(ids[0] is not None)
 
-        ids = getLatissOnSkyDataIds(self.butler, startDate=RECENT_DAY, endDate=RECENT_DAY, full=True)
-        self.assertTrue(len(ids) >= 0)
+        ids = getLatissOnSkyDataIds(self.butler, skipTypes=skipTypes, startDate=dayToUse, endDate=dayToUse,
+                                    full=True)
+        self.assertTrue(len(ids) > 0)
         self.assertTrue(ids[0] is not None)
         testId = ids[0]
         self.assertTrue(_dayobs_present(testId))
@@ -350,7 +355,7 @@ class ButlerUtilsTestCase(lsst.utils.tests.TestCase):
                      self.expRecordNoDetector, self.dataCoordFullView,
                      self.dataCoordMinimal, self.rawDataIdNoDayObSeqNum]:
             testId = _assureDict(item)
-            self.assertTrue(isinstance(testId, dict))
+            self.assertIsInstance(testId, dict)
         return
 
     def test__get_dayobs_key(self):

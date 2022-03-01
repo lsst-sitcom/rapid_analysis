@@ -86,7 +86,7 @@ class BestEffortIsr():
                 setattr(config, option, value)
                 self.log.info(f"Set isr config override {option} to {value}")
             else:
-                self.log.warn(f"Override option {option} not found in isrConfig")
+                self.log.warning(f"Override option {option} not found in isrConfig")
 
     @staticmethod
     def _parseExpIdOrDataId(expIdOrDataId, **kwargs):
@@ -116,11 +116,11 @@ class BestEffortIsr():
         try:
             raw = self.butler.get('raw', **dataId)
         except LookupError:
-            raise RuntimeError(f"Failed to retrieve raw for exp {dataId}")
+            raise RuntimeError(f"Failed to retrieve raw for exp {dataId}") from None
 
         # default options that are probably good for most engineering time
         isrConfig = IsrTask.ConfigClass()
-        isrConfig.doWrite = False  # this task writes seperately, no need for this
+        isrConfig.doWrite = False  # this task writes separately, no need for this
         isrConfig.doSaturation = True  # saturation very important for roundness measurement in qfm
         isrConfig.doSaturationInterpolation = True
         isrConfig.overscanNumLeadingColumnsToSkip = 5
@@ -156,7 +156,7 @@ class BestEffortIsr():
                 self.butler.put(quickLookExp, DATASET_NAME, dataId)
                 self.log.info(f'Put quickLookExp for {dataId}')
             except ConflictingDefinitionError:
-                self.log.warn('Skipped putting existing exp into collection! (ignore if there was a race)')
+                self.log.warning('Skipped putting existing exp into collection! (ignore if there was a race)')
                 pass
 
         return quickLookExp

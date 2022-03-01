@@ -32,7 +32,7 @@ class Animator():
                  smoothImages=True,
                  plotObjectCentroids=True,
                  useQfmForCentroids=False,
-                 dataProcuctToPlot='calexp',
+                 dataProductToPlot='calexp',
                  ffMpegBinary='/home/mfl/bin/ffmpeg',
                  debug=False):
 
@@ -50,7 +50,7 @@ class Animator():
         self.smoothImages = smoothImages
         self.plotObjectCentroids = plotObjectCentroids
         self.useQfmForCentroids = useQfmForCentroids
-        self.dataProcuctToPlot = dataProcuctToPlot
+        self.dataProductToPlot = dataProductToPlot
         self.ffMpegBinary = ffMpegBinary
         self.debug = debug
 
@@ -73,9 +73,19 @@ class Animator():
 
     @staticmethod
     def _strDataId(dataId):
-        if getDayObs(dataId) and getSeqNum(dataId):   # nicely ordered if easy
-            dayObs = getDayObs(dataId)
-            seqNum = getSeqNum(dataId)
+        """Make a dataId into a string suitable for use as a filename.
+
+        Parameters
+        ----------
+        dataId : `dict`
+            The data id.
+
+        Returns
+        -------
+        strId : `str`
+            The data id as a string.
+        """
+        if (dayObs := getDayObs(dataId)) and (seqNum := getSeqNum(dataId)):   # nicely ordered if easy
             return f"{dayObsIntToString(dayObs)}-{seqNum:05d}"
 
         # General case (and yeah, I should probably learn regex someday)
@@ -99,10 +109,10 @@ class Animator():
         dIdStr = self._strDataId(dataId)
 
         if includeNumber:  # for use in temp dir, so not full path
-            filename = self.toAnimateTemplate%(imNum, dIdStr, self.dataProcuctToPlot)
+            filename = self.toAnimateTemplate%(imNum, dIdStr, self.dataProductToPlot)
             return os.path.join(filename)
         else:
-            filename = self.basicTemplate%(dIdStr, self.dataProcuctToPlot)
+            filename = self.basicTemplate%(dIdStr, self.dataProductToPlot)
             return os.path.join(self.pngPath, filename)
 
     def exists(self, obj):
@@ -127,12 +137,11 @@ class Animator():
         dIdsWithPngs = [d for d in self.dataIdList if self.exists(self.dataIdToFilename(d))]
         dIdsWithoutPngs = [d for d in self.dataIdList if d not in dIdsWithPngs]
         if self.debug:
-            print(f"dIdsWithPngs = {dIdsWithPngs}")
-            print(f"dIdsWithoutPngs = {dIdsWithoutPngs}")
+            logger.info(f"dIdsWithPngs = {dIdsWithPngs}")
+            logger.info(f"dIdsWithoutPngs = {dIdsWithoutPngs}")
 
         # check the datasets exist for the pngs which need remaking
-        # import ipdb as pdb; pdb.set_trace()
-        missingData = [d for d in dIdsWithoutPngs if not datasetExists(butler, self.dataProcuctToPlot, d,
+        missingData = [d for d in dIdsWithoutPngs if not datasetExists(butler, self.dataProductToPlot, d,
                                                                        detector=0)]
 
         logger.info(f"Of the provided {len(self.dataIdList)} dataIds:")
@@ -141,10 +150,10 @@ class Animator():
 
         if missingData:
             for dId in missingData:
-                msg = f"Failed to find {self.dataProcuctToPlot} for {dId}"
+                msg = f"Failed to find {self.dataProductToPlot} for {dId}"
                 logger.warn(msg)
                 self.dataIdList.remove(dId)
-            logger.info(f"Of the {len(dIdsWithoutPngs)} dataIds without pngs, {len(missingData)}" +
+            logger.info(f"Of the {len(dIdsWithoutPngs)} dataIds without pngs, {len(missingData)}"
                         " did not have the corresponding dataset existing")
 
         if self.remakePngs:
@@ -162,12 +171,12 @@ class Animator():
         if self.pngsToMakeDataIds:
             logger.info('Creating necessary pngs...')
             for i, dataId in enumerate(self.pngsToMakeDataIds):
-                print(f'Making png for file {i+1} of {len(self.pngsToMakeDataIds)}')
+                logger.info(f'Making png for file {i+1} of {len(self.pngsToMakeDataIds)}')
                 self.makePng(dataId, self.dataIdToFilename(dataId))
 
         # stage files in temp dir with numbers prepended to filenames
         if not self.dataIdList:
-            print('No files to animate - nothing to do')
+            logger.warn('No files to animate - nothing to do')
             return
 
         logger.info('Copying files to ordered temp dir...')
@@ -222,7 +231,7 @@ class Animator():
                 result = self.qfmTask.run(exp)
                 pixCoord = result.brightestObjCentroid
                 expId = exp.getInfo().getVisitInfo().getExposureId()
-                print(f'XXX expId {expId} centroid {pixCoord}')
+                logger.info(f'expId {expId} has centroid {pixCoord}')
             except Exception:
                 return None
         else:
@@ -234,16 +243,16 @@ class Animator():
             assert False, f"Almost overwrote {saveFilename} - how is this possible?"
 
         if self.debug:
-            print(f"Creating {saveFilename}")
+            logger.info(f"Creating {saveFilename}")
 
         self.fig.clear()
 
         # must always keep exp unsmoothed for the centroiding via qfm
         try:
-            exp = self.butler.get(self.dataProcuctToPlot, dataId)
+            exp = self.butler.get(self.dataProductToPlot, dataId)
         except Exception:
             # oh no, that should never happen, but it does! Let's just skip
-            print(f'Skipped {dataId}, because {self.dataProcuctToPlot} retrieval failed!')
+            logger.warn(f'Skipped {dataId}, because {self.dataProductToPlot} retrieval failed!')
             return
         toDisplay = exp
         if self.smoothImages:
@@ -274,7 +283,7 @@ class Animator():
         deltaV = -0.05
         plt.subplots_adjust(right=1+deltaH, left=0-deltaH, top=1+deltaV, bottom=0-deltaV)
         self.fig.savefig(saveFilename)
-        print(f'Saved png for {dataId} to {saveFilename}')
+        logger.info(f'Saved png for {dataId} to {saveFilename}')
 
     def pngsToMp4(self, indir, outfile, framerate, verbose=False):
         """Create the movie with ffmpeg, from files."""
@@ -321,16 +330,16 @@ class Animator():
         return newExp
 
 
-def animateDay(butler, dayObs, outputPath, dataProcuctToPlot='quickLookExp'):
+def animateDay(butler, dayObs, outputPath, dataProductToPlot='quickLookExp'):
     outputFilename = f'{dayObs}.mp4'
 
     onSkyIds = getLatissOnSkyDataIds(butler, startDate=dayObs, endDate=dayObs)
-    print(f"Found {len(onSkyIds)} on sky ids for {dayObs}")
+    logger.info(f"Found {len(onSkyIds)} on sky ids for {dayObs}")
 
     onSkyIds = [updateDataIdOrDataCord(dataId, detector=0) for dataId in onSkyIds]
 
     animator = Animator(butler, onSkyIds, outputPath, outputFilename,
-                        dataProcuctToPlot=dataProcuctToPlot,
+                        dataProductToPlot=dataProductToPlot,
                         remakePngs=False,
                         debug=False,
                         clobberVideoAndGif=True,
@@ -342,17 +351,6 @@ def animateDay(butler, dayObs, outputPath, dataProcuctToPlot='quickLookExp'):
 if __name__ == '__main__':
     outputPath = '/home/mfl/animatorOutput/main/'
     butler = makeDefaultLatissButler('NCSA')
-    skipTypes = ['BIAS', 'DARK', 'FLAT']  # XXX does this still work?!
-
-    def isOnSky(dataId):
-        if dataId['imageType'] not in skipTypes:  # XXX does this still work?!
-            return True
-        return False
-
-    # def isDispersed(dataId):
-    #     if dataId['imageType'] not in skipTypes:
-    #         return True
-    #     return False
 
     day = 20211104
     animateDay(butler, day, outputPath)

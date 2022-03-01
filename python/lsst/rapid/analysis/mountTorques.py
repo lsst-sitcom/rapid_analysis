@@ -26,6 +26,7 @@ from astropy.time import Time
 import asyncio
 import lsst.rapid.analysis.butlerUtils as bu
 from .utils import dayObsIntToString
+from astro_metadata_translator import ObservationInfo
 
 try:
     from lsst_efd_client import merge_packed_time_series as mpts
@@ -79,18 +80,21 @@ def plotMountTracking(dataId, butler, client, figure, saveFilename, logger):
 
     start = time.time()
 
-    mData = butler.get('raw.metadata', dataId)
-    dsDict = bu.getDayObsSeqNumFromExposureId(butler, dataId)
-    dayString = dayObsIntToString(dsDict.get('day_obs'))
-    seqNumString = str(dsDict.get('seq_num'))
+    expRecord = bu.getExpRecordFromDataId(butler, dataId)
+    dayString = dayObsIntToString(expRecord.day_obs)
+    seqNumString = str(expRecord.seq_num)
     dataIdString = f"{dayString} - seqNum {seqNumString}"
 
-    imgType = mData['IMGTYPE']
-    tStart = mData['DATE-BEG']
-    tEnd = mData['DATE-END']
-    elevation = mData['ELSTART']
-    azimuth = mData['AZSTART']
-    exptime = mData['EXPTIME']
+    imgType = expRecord.observation_type.upper()
+    tStart = expRecord.timespan.begin.tai.to_value("isot")
+    tEnd = expRecord.timespan.end.tai.to_value("isot")
+    elevation = 90 - expRecord.zenith_angle
+    exptime = expRecord.exposure_time
+
+    # TODO: DM-33859 remove this once it can be got from the expRecord
+    md = butler.get('raw.metadata', dataId, detector=0)
+    obsInfo = ObservationInfo(md)
+    azimuth = obsInfo.altaz_begin.az.value
     logger.debug(f"dataId={dataIdString}, imgType={imgType}, Times={tStart}, {tEnd}")
 
     if imgType not in GOOD_IMAGE_TYPES:

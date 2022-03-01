@@ -35,7 +35,7 @@ __all__ = ["makeDefaultLatissButler",
            "getExpId",
            "datasetExists",
            "sortRecordsByAttribute",
-           "getDaysOnSky",
+           "getDaysWithData",
            "getExpIdFromDayObsSeqNum",
            "updateDataIdOrDataCord",
            "fillDataId",
@@ -56,11 +56,11 @@ LATISS_REPO_LOCATION_MAP = {'NCSA': '/repo/main',
 _LOCATIONS = list(LATISS_REPO_LOCATION_MAP.keys())
 _REPO_PATHS = list(LATISS_REPO_LOCATION_MAP.values())
 
-# RECENT_DAY must be in the past, to speed up queries by resitricting
+# RECENT_DAY must be in the past, to speed up queries by restricting
 # them significantly, but data must definitely been taken since. Should
 # also not be more than 2 months in the past due to 60 day lookback time on the
 # summit. All this means it should be updated by an informed human.
-RECENT_DAY = 20211001
+RECENT_DAY = 20220201
 
 
 def _update_RECENT_DAY(day):
@@ -89,7 +89,7 @@ def makeDefaultLatissButler(location, *, extraCollections=None, writeable=False)
     butler : `lsst.daf.butler.Butler`
         The butler.
     """
-    # TODO: if/when RFC-811 passes, update this to use the env var
+    # TODO: DM-33849 remove this once we can use the butler API.
     # TODO: Add logging to which collections are going in
     if location not in _LOCATIONS:
         raise RuntimeError(f'Default butler location only supported for {_LOCATIONS}, got {location}')
@@ -111,6 +111,7 @@ def _repoDirToLocation(repoPath):
     return location
 
 
+# TODO: DM-32940 can remove this whole function once this ticket merges.
 def datasetExists(butler, dataProduct, dataId, **kwargs):
     """Collapse the tri-state behaviour of butler.datasetExists to a boolean.
 
@@ -154,16 +155,17 @@ def sanitize_day_obs(day_obs):
     Raises
     ------
     ValueError
-        Raised if the day_obs fails to translate for any reason."""
+        Raised if the day_obs fails to translate for any reason.
+    """
     if isinstance(day_obs, int):
         return day_obs
     elif isinstance(day_obs, str):
         try:
             return int(day_obs.replace('-', ''))
         except Exception:
-            ValueError(f'Failed to sanitize {day_obs} to a day_obs')
+            ValueError(f'Failed to sanitize {day_obs!r} to a day_obs')
     else:
-        raise ValueError(f'Cannot sanitize {day_obs} to a day_obs')
+        raise ValueError(f'Cannot sanitize {day_obs!r} to a day_obs')
 
 
 def getMostRecentDayObs(butler):
@@ -179,8 +181,9 @@ def getMostRecentDayObs(butler):
     day_obs : `int`
         The day_obs.
     """
-    where = f"exposure.day_obs>{RECENT_DAY}"
-    records = butler.registry.queryDimensionRecords('exposure', where=where, datasets='raw')
+    where = "exposure.day_obs>RECENT_DAY"
+    records = butler.registry.queryDimensionRecords('exposure', where=where, datasets='raw',
+                                                    bind={'RECENT_DAY': RECENT_DAY})
     recentDay = max(r.day_obs for r in records)
     _update_RECENT_DAY(recentDay)
     return recentDay
@@ -233,7 +236,7 @@ def sortRecordsByAttribute(records, attribute):
     return sortedRecords
 
 
-def getDaysOnSky(butler):
+def getDaysWithData(butler):
     """Get all the days for which LATISS has taken data on the mountain.
 
     Parameters
@@ -541,7 +544,7 @@ def _expid_present(dataId):
 def _get_dayobs_key(dataId):
     """Return the key for day_obs if present, else None
     """
-    keys = [k for k, v in dataId.items() if k.find('day_obs') != -1]
+    keys = [k for k in dataId.keys() if k.find('day_obs') != -1]
     if not keys:
         return None
     return keys[0]
@@ -550,7 +553,7 @@ def _get_dayobs_key(dataId):
 def _get_seqnum_key(dataId):
     """Return the key for seq_num if present, else None
     """
-    keys = [k for k, v in dataId.items() if k.find('seq_num') != -1]
+    keys = [k for k in dataId.keys() if k.find('seq_num') != -1]
     if not keys:
         return None
     return keys[0]
@@ -620,7 +623,7 @@ def getExpId(dataId):
     return dataId['exposure'] if 'exposure' in dataId else dataId['exposure.id']
 
 
-def getLatissOnSkyDataIds(butler, skipTypes=['bias', 'dark', 'flat'], checkObject=True, full=True,
+def getLatissOnSkyDataIds(butler, skipTypes=('bias', 'dark', 'flat'), checkObject=True, full=True,
                           startDate=None, endDate=None):
     """Get a list of all on-sky dataIds taken.
 
@@ -661,7 +664,7 @@ def getLatissOnSkyDataIds(butler, skipTypes=['bias', 'dark', 'flat'], checkObjec
         return False
 
     recordSets = []
-    days = getDaysOnSky(butler)
+    days = getDaysWithData(butler)
     if startDate:
         days = [d for d in days if d >= startDate]
     if endDate:

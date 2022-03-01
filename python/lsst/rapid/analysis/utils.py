@@ -89,6 +89,7 @@ def argMax2d(array):
 def dayObsIntToString(dayObs):
     assert isinstance(dayObs, int)
     dStr = str(dayObs)
+    assert len(dStr) == 8
     return '-'.join([dStr[0:4], dStr[4:6], dStr[6:8]])
 
 
@@ -209,9 +210,12 @@ def _getAltAzZenithsFromSeqNum(butler, dayObs, seqNumList):
     azimuths, elevations, zeniths = [], [], []
     for seqNum in seqNumList:
         md = butler.get('raw.metadata', day_obs=dayObs, seq_num=seqNum, detector=0)
-        elevations.append(md['ELSTART'])
-        zeniths.append(90-md['ELSTART'])
-        azimuths.append(md['AZSTART'])
+        obsInfo = ObservationInfo(md)
+        alt = obsInfo.altaz_begin.alt.value
+        az = obsInfo.altaz_begin.az.value
+        elevations.append(alt)
+        zeniths.append(90-alt)
+        azimuths.append(az)
     return azimuths, elevations, zeniths
 
 

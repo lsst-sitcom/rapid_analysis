@@ -47,7 +47,7 @@ from lsst.rapid.analysis.mountTorques import plotMountTracking
 from lsst.rapid.analysis.monitorPlotting import plotExp
 from lsst.rapid.analysis.butlerUtils import (makeDefaultLatissButler, LATISS_REPO_LOCATION_MAP, datasetExists,
                                              getMostRecentDataId, getExpIdFromDayObsSeqNum)
-from lsst.atmospec.utils import isDispersedDataId
+from lsst.atmospec.utils import isDispersedDataId, dayObsIntToString
 
 CHANNELS = ["summit_imexam", "summit_specexam", "auxtel_mount_torques",
             "auxtel_monitor"]
@@ -71,12 +71,7 @@ def _dataIdToFilename(channel, dataId):
     filename : `str`
         The filename
     """
-    def dayIntToDayObsStr(dayInt):
-        dayStr = str(dayInt)
-        assert len(dayStr) == 8
-        return '-'.join([dayStr[0:4], dayStr[4:6], dayStr[6:8]])
-
-    dayObsStr = dayIntToDayObsStr(dataId['day_obs'])
+    dayObsStr = dayObsIntToString(dataId['day_obs'])
     filename = f"{PREFIXES[channel]}_dayObs_{dayObsStr}_seqNum_{dataId['seq_num']}.png"
     return filename
 
@@ -266,7 +261,7 @@ class ImExaminerChannel():
 
     def _imExamine(self, exp, dataId, outputFilename):
         if os.path.exists(outputFilename):  # unnecessary now we're using tmpfile
-            self.log.warn(f"Skipping {outputFilename}")
+            self.log.warning(f"Skipping {outputFilename}")
             return
         imexam = ImageExaminer(exp, savePlots=outputFilename, doTweakCentroid=True)
         imexam.plot()
@@ -291,7 +286,7 @@ class ImExaminerChannel():
             self.log.info('Upload complete')
 
         except Exception as e:
-            self.log.warn(f"Skipped imExam on {dataId} because {e}")
+            self.log.warning(f"Skipped imExam on {dataId} because {e}")
             return None
 
     def run(self):
@@ -314,7 +309,7 @@ class SpecExaminerChannel():
 
     def _specExamine(self, exp, dataId, outputFilename):
         if os.path.exists(outputFilename):  # unnecessary now we're using tmpfile?
-            self.log.warn(f"Skipping {outputFilename}")
+            self.log.warning(f"Skipping {outputFilename}")
             return
         summary = SpectrumExaminer(exp, savePlotAs=outputFilename)
         summary.run()
@@ -343,7 +338,7 @@ class SpecExaminerChannel():
             self.log.info('Upload complete')
 
         except Exception as e:
-            self.log.warn(f"Skipped specExam on {dataId} because {e}")
+            self.log.warning(f"Skipped specExam on {dataId} because {e}")
             return None
 
     def run(self):
@@ -368,7 +363,7 @@ class MonitorChannel():
 
     def _plotImage(self, exp, dataId, outputFilename):
         if os.path.exists(outputFilename):  # unnecessary now we're using tmpfile
-            self.log.warn(f"Skipping {outputFilename}")
+            self.log.warning(f"Skipping {outputFilename}")
             return
         plotExp(exp, dataId, self.fig, outputFilename)
 
@@ -394,7 +389,7 @@ class MonitorChannel():
         except Exception as e:
             if self.doRaise:
                 raise RuntimeError from e
-            self.log.warn(f"Skipped monitor image for {dataId} because {e}")
+            self.log.warning(f"Skipped monitor image for {dataId} because {e}")
             return None
 
     def run(self):
@@ -440,7 +435,7 @@ class MountTorqueChannel():
         except Exception as e:
             if self.doRaise:
                 raise RuntimeError from e
-            self.log.warn(f"Skipped creating mount plots for {dataId} because {e}")
+            self.log.warning(f"Skipped creating mount plots for {dataId} because {e}")
 
     def run(self):
         """Run continuously, calling the callback method on the latest dataId.

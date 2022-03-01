@@ -85,7 +85,7 @@ class QuickLookTaskConfig(pipeBase.PipelineTaskConfig,
     )
 
 
-class QuickLookTask(pipeBase.PipelineTask, pipeBase.CmdLineTask):
+class QuickLookTask(pipeBase.PipelineTask):
 
     """Task to automatically perform as much isr as possible.
 
@@ -113,7 +113,6 @@ class QuickLookTask(pipeBase.PipelineTask, pipeBase.CmdLineTask):
             bfGains=None,
             ptc=None,
             crosstalkSources=None,
-            isGen3=False,
             isrBaseConfig=None
             ):
         """Run isr and cosmic ray repair using, doing as much isr as possible.
@@ -175,8 +174,6 @@ class QuickLookTask(pipeBase.PipelineTask, pipeBase.CmdLineTask):
             atmosphere, assumed to be spatially constant.
         detectorNum : `int`, optional
             The integer number for the detector to process.
-        isGen3 : bool, optional
-            Flag this call to run() as using the Gen3 butler environment.
         strayLightData : `object`, optional
             Opaque object containing calibration information for stray-light
             correction.  If `None`, no correction will be performed.
@@ -253,7 +250,7 @@ class QuickLookTask(pipeBase.PipelineTask, pipeBase.CmdLineTask):
                              bfGains=bfGains,
                              ptc=ptc,
                              crosstalkSources=crosstalkSources,
-                             isGen3=isGen3,)
+                             isGen3=True,)
 
         postIsr = result.exposure
 
@@ -273,7 +270,7 @@ class QuickLookTask(pipeBase.PipelineTask, pipeBase.CmdLineTask):
 
                 repairTask.repair.run(postIsr)
             except Exception as e:
-                self.log.warn(f"During CR repair caught: {e}")
+                self.log.warning(f"During CR repair caught: {e}")
 
         # outputExposure is persisted, exposure is returned for convenience to
         # mimic Gen2 isrTask's API.
