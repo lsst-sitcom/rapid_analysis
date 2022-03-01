@@ -92,7 +92,7 @@ def _waitForDataProduct(butler, dataProduct, dataId, logger, maxTime=20):
     dataProduct : `str`
         The dataProduct to wait for, e.g. postISRCCD or calexp etc
 
-    logger : `lsst.log.Log`
+    logger : `logging.Logger`
         Logger
 
     maxTime : `int` or `float`

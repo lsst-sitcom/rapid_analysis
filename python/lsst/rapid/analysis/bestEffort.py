@@ -21,7 +21,7 @@
 
 from sqlite3 import OperationalError
 
-import lsst.log as lsstLog
+import logging
 from lsst.ip.isr import IsrTask
 import lsst.daf.butler as dafButler
 from lsst.daf.butler.registry import ConflictingDefinitionError
@@ -60,7 +60,7 @@ class BestEffortIsr():
         """
         if repodir not in ALLOWED_REPOS:
             raise RuntimeError('Currently only NCSA and summit repos are supported')
-        self.log = lsstLog.Log.getDefaultLogger()
+        self.log = logging.getLogger(__name__)
 
         location = _repoDirToLocation(repodir)
         LSC = LATISS_SUPPLEMENTAL_COLLECTIONS  # grrr, line lengths

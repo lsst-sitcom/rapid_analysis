@@ -10,7 +10,7 @@ from lsst.pipe.tasks.quickFrameMeasurement import QuickFrameMeasurementTask, Qui
 from lsst.atmospec.processStar import getTargetCentroidFromWcs
 import lsst.afw.display as afwDisplay
 import lsst.afw.math as afwMath
-import lsst.log
+import logging
 import lsst.meas.algorithms as measAlg
 from lsst.rapid.analysis.utils import dayObsIntToString
 from lsst.rapid.analysis.butlerUtils import (datasetExists, getExpRecordFromDataId, makeDefaultLatissButler,
@@ -18,7 +18,7 @@ from lsst.rapid.analysis.butlerUtils import (datasetExists, getExpRecordFromData
                                              getLatissOnSkyDataIds)
 
 from lsst.atmospec.utils import airMassFromRawMetadata
-logger = lsst.log.Log.getLogger("lsst.rapid.analysis.animation")
+logger = logging.getLogger("lsst.rapid.analysis.animation")
 
 
 class Animator():

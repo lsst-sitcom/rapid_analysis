@@ -24,7 +24,7 @@ from scipy.ndimage.filters import gaussian_filter
 import lsst.afw.detection as afwDetect
 import lsst.afw.math as afwMath
 import lsst.pipe.base as pipeBase
-import lsst.log as lsstLog
+import logging
 
 from lsst.obs.lsst.translators.lsst import FILTER_DELIMITER
 from lsst.obs.lsst.translators.latiss import AUXTEL_LOCATION
@@ -224,7 +224,7 @@ def getFocusFromHeader(exp):
 
 def checkRubinTvExternalPackages(exitIfNotFound=True, logger=None):
     if not logger:
-        logger = lsstLog.Log.getDefaultLogger()
+        logger = logging.getLogger(__name__)
 
     hasGoogleStorage = False
     hasEfdClient = False

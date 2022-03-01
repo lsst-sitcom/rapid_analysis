@@ -65,7 +65,7 @@ def plotMountTracking(dataId, butler, client, figure, saveFilename, logger):
     saveFilename : `str`
         Full path and filename to save the plot to.
 
-    logger : `lsst.log.Log`
+    logger : `logging.Logger`
         The logger.
 
     Returns

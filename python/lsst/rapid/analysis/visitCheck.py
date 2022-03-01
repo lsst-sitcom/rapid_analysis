@@ -29,7 +29,7 @@ import lsst.pex.config as pexConfig
 import lsst.pipe.base as pipeBase
 # import lsst.afw.image as afwImage
 import lsst.afw.math as afwMath
-import lsst.log as lsstLog
+import logging
 from lsst.cp.pipe.utils import countMaskedPixels
 
 from lsst.ip.isr import IsrTask, AssembleCcdTask
@@ -37,7 +37,7 @@ from astro_metadata_translator import ObservationInfo
 
 
 class BasicTestTask(pipeBase.Task):
-    logger = lsstLog.getLogger(' ')  # empty string results in name being "root"
+    logger = logging.getLogger(' ')  # empty string results in name being "root"
 
     def computeImageStats(self, exposure):
         opts = afwMath.MEAN | afwMath.STDEV | afwMath.MEANCLIP | afwMath.STDEVCLIP
