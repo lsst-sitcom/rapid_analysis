@@ -28,7 +28,7 @@ import lsst.pipe.base as pipeBase
 from lsst.pipe.tasks.characterizeImage import CharacterizeImageTask
 from lsst.meas.algorithms.installGaussianPsf import InstallGaussianPsfTask
 
-__all__ = ['QuickLookTask', 'QuickLookTaskConfig']
+__all__ = ['QuickLookIsrTask', 'QuickLookIsrTaskConfig']
 
 
 def _getArgs(connection):
@@ -42,7 +42,7 @@ def _getArgs(connection):
     return newArgs
 
 
-class QuickLookTaskConnections(IsrTaskConnections):
+class QuickLookIsrTaskConnections(IsrTaskConnections):
     def __init__(self, *, config=None):
         """Copy isrTask's connections, changing prereq min values to zero.
 
@@ -69,9 +69,9 @@ class QuickLookTaskConnections(IsrTaskConnections):
         self.outputExposure = exposure
 
 
-class QuickLookTaskConfig(pipeBase.PipelineTaskConfig,
-                          pipelineConnections=QuickLookTaskConnections):
-    """Configuration parameters for QuickLookTask."""
+class QuickLookIsrTaskConfig(pipeBase.PipelineTaskConfig,
+                             pipelineConnections=QuickLookIsrTaskConnections):
+    """Configuration parameters for QuickLookIsrTask."""
 
     doRepairCosmics = pexConfig.Field(
         dtype=bool,
@@ -85,7 +85,7 @@ class QuickLookTaskConfig(pipeBase.PipelineTaskConfig,
     )
 
 
-class QuickLookTask(pipeBase.PipelineTask):
+class QuickLookIsrTask(pipeBase.PipelineTask):
 
     """Task to automatically perform as much isr as possible.
 
@@ -94,7 +94,7 @@ class QuickLookTask(pipeBase.PipelineTask):
     interpolates over cosmic rays.
     """
 
-    ConfigClass = QuickLookTaskConfig
+    ConfigClass = QuickLookIsrTaskConfig
     RunnerClass = pipeBase.ButlerInitializedTaskRunner
     _DefaultName = "quickLook"
 

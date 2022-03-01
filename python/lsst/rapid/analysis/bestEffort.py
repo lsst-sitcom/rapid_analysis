@@ -26,7 +26,7 @@ from lsst.ip.isr import IsrTask
 import lsst.daf.butler as dafButler
 from lsst.daf.butler.registry import ConflictingDefinitionError
 
-from lsst.rapid.analysis.quickLook import QuickLookTask
+from lsst.rapid.analysis.quickLook import QuickLookIsrTask
 from lsst.rapid.analysis.butlerUtils import (LATISS_DEFAULT_COLLECTIONS, LATISS_SUPPLEMENTAL_COLLECTIONS,
                                              _repoDirToLocation)
 
@@ -38,43 +38,51 @@ ALLOWED_REPOS = ['/repo/main', '/repo/LATISS', '/readonly/repo/main']
 
 
 class BestEffortIsr():
+    """Instantiate a BestEffortIsr object.
 
-    def __init__(self, repodir='', *,
+    Acceptable repodir values are currently listen in ALLOWED_REPOS. This will
+    be updated (removed) once DM-33849 is done.
+
+    defaultExtraIsrOptions is a dict of options applied to all images.
+
+    Parameters
+    ----------
+    repoDir : `str`
+        The repo root. Will be removed after DM-33849.
+
+    extraCollections : `list` of `str`, optional
+        Extra collections to add to the butler init. Collections are prepended.
+
+    defaultExtraIsrOptions : `dict`, optional
+        A dict of extra isr config options to apply. Each key should be an
+    attribute of an isrTaskConfigClass.
+
+    doRepairCosmics : `bool`, optional
+        Repair cosmic ray hits?
+
+    doWrite : `bool`, optional
+        Write the outputs to the quickLook rerun/collection?
+    """
+
+    def __init__(self, repodir, *,
                  extraCollections=[], defaultExtraIsrOptions={}, doRepairCosmics=True, doWrite=True):
-        f"""Instantiate a BestEffortIsr object.
-
-        Acceptable repodir values are currently {ALLOWED_REPOS}
-
-        defaultExtraIsrOptions is a dict of options applied to all images.
-
-        Parameters
-        ----------
-        collections : `list` of `str`
-            The collections to use.
-
-        doRepairCosmics : `bool`, optional
-            Repair cosmic ray hits?
-
-        doWrite : `bool`, optional
-            Write the outputs to the quickLook rerun/collection?
-        """
         if repodir not in ALLOWED_REPOS:
             raise RuntimeError('Currently only NCSA and summit repos are supported')
         self.log = logging.getLogger(__name__)
 
         location = _repoDirToLocation(repodir)
-        LSC = LATISS_SUPPLEMENTAL_COLLECTIONS  # grrr, line lengths
-        collections = (LSC[location] if location in LSC.keys() else []) + LATISS_DEFAULT_COLLECTIONS
+        collections = (LATISS_SUPPLEMENTAL_COLLECTIONS[location] if location in
+                       LATISS_SUPPLEMENTAL_COLLECTIONS.keys() else []) + LATISS_DEFAULT_COLLECTIONS
         self.collections = extraCollections + collections
         self.log.info(f'Instantiating butler with collections={self.collections}')
         self.butler = dafButler.Butler(repodir, collections=self.collections,
                                        instrument='LATISS',
                                        run=CURRENT_RUN if doWrite else None)
 
-        quickLookConfig = QuickLookTask.ConfigClass()
-        quickLookConfig.doRepairCosmics = doRepairCosmics
+        quickLookIsrConfig = QuickLookIsrTask.ConfigClass()
+        quickLookIsrConfig.doRepairCosmics = doRepairCosmics
         self.doWrite = doWrite  # the task, as run by run() method, can't do the write, so we handle in here
-        self.quickLookTask = QuickLookTask(config=quickLookConfig)
+        self.quickLookIsrTask = QuickLookIsrTask(config=quickLookIsrConfig)
 
         self.defaultExtraIsrOptions = defaultExtraIsrOptions
 
@@ -148,8 +156,8 @@ class BestEffortIsr():
             except (RuntimeError, LookupError, OperationalError):
                 pass
 
-        quickLookExp = self.quickLookTask.run(raw, **isrDict, isrBaseConfig=isrConfig,
-                                              isGen3=True).outputExposure
+        quickLookExp = self.quickLookIsrTask.run(raw, **isrDict, isrBaseConfig=isrConfig,
+                                                 isGen3=True).outputExposure
 
         if self.doWrite:
             try:
