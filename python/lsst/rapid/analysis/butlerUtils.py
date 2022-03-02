@@ -45,6 +45,7 @@ __all__ = ["makeDefaultLatissButler",
            "getLatissOnSkyDataIds",
            "_repoDirToLocation"]
 
+# TODO: DM-33864 Unify these now that DM-32742 is done.
 LATISS_DEFAULT_COLLECTIONS = ['LATISS/raw/all', 'LATISS/calib', "LATISS/runs/quickLook"]
 LATISS_SUPPLEMENTAL_COLLECTIONS = {'NCSA': ['LATISS/calib/DM-32209'],
                                    'summit': ['u/czw/DM-28920/calib.20210720']}

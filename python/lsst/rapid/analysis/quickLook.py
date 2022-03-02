@@ -32,7 +32,7 @@ __all__ = ['QuickLookIsrTask', 'QuickLookIsrTaskConfig']
 
 
 def _getArgs(connection):
-    """Get the all the required args from a connection in order to reconstruct.
+    """Get the all required args from a connection in order to reconstruct it.
     """
     newArgs = {}
     for attr in ("name", "storageClass", "multiple", "doc", "dimensions", "isCalibration", "deferLoad",
@@ -43,13 +43,13 @@ def _getArgs(connection):
 
 
 class QuickLookIsrTaskConnections(IsrTaskConnections):
-    def __init__(self, *, config=None):
-        """Copy isrTask's connections, changing prereq min values to zero.
+    """Copy isrTask's connections, changing prereq min values to zero.
 
-        Copy all the connections directly for IsrTask, keeping ccdExposure as
-        required as non-zero, but changing all the other PrerequisiteInputs'
-        minimum values to zero.
-        """
+    Copy all the connections directly for IsrTask, keeping ccdExposure as
+    required as non-zero, but changing all the other PrerequisiteInputs'
+    minimum values to zero.
+    """
+    def __init__(self, *, config=None):
         super().__init__(config=IsrTask.ConfigClass())  # need a dummy config, isn't used other than for ctor
         for name, connection in self.allConnections.items():
             if hasattr(connection, 'minimum'):
@@ -78,27 +78,22 @@ class QuickLookIsrTaskConfig(pipeBase.PipelineTaskConfig,
         doc="Interpolate over cosmic rays?",
         default=True,
     )
-    doWrite = pexConfig.Field(  # XXX do we want this option? If yes, make it work.
-        dtype=bool,
-        doc="Write out the results?",
-        default=True,
-    )
 
 
 class QuickLookIsrTask(pipeBase.PipelineTask):
-
-    """Task to automatically perform as much isr as possible.
+    """Task automatically performing as much isr as possible. Should never fail
 
     Automatically performs as much isr as is possible, depending on the
-    calibration products available. Applies these, and then optionally
-    interpolates over cosmic rays.
+    calibration products available. All calibration products that can be found
+    are applied, and if none are found, the image is assembled, the overscan is
+    subtracted and the assembled image is returned. Optionally, cosmic rays are
+    interpolated over.
     """
 
     ConfigClass = QuickLookIsrTaskConfig
-    RunnerClass = pipeBase.ButlerInitializedTaskRunner
     _DefaultName = "quickLook"
 
-    def __init__(self, *, butler=None, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     def run(self, ccdExposure, *,
@@ -181,15 +176,15 @@ class QuickLookIsrTask(pipeBase.PipelineTask):
             Illumination correction image.
         isrBaseConfig : `lsst.ip.isr.IsrTaskConfig`, optional
             An isrTask config to act as the base configuration. Options which
-            involve apply a calibration product are ignored, but this allows
+            involve applying a calibration product are ignored, but this allows
             for the configuration of e.g. the number of overscan columns.
+
         Returns
         -------
         result : `lsst.pipe.base.Struct`
             Result struct with component:
             - ``exposure`` : `afw.image.Exposure`
                 The ISRed and cosmic-ray-repaired exposure.
-
         """
         isrConfig = isrBaseConfig if isrBaseConfig else IsrTask.ConfigClass()
         isrConfig.doBias = False
@@ -265,6 +260,7 @@ class QuickLookIsrTask(pipeBase.PipelineTask):
                 repairConfig.doMeasurePsf = False
                 repairConfig.doApCorr = False
                 repairConfig.doDeblend = False
+                repairConfig.doWrite = False
                 repairConfig.repair.cosmicray.nCrPixelMax = 200000
                 repairTask = CharacterizeImageTask(config=repairConfig)
 
@@ -272,7 +268,6 @@ class QuickLookIsrTask(pipeBase.PipelineTask):
             except Exception as e:
                 self.log.warning(f"During CR repair caught: {e}")
 
-        # outputExposure is persisted, exposure is returned for convenience to
-        # mimic Gen2 isrTask's API.
+        # exposure is returned for convenience to mimic isrTask's API.
         return pipeBase.Struct(exposure=postIsr,
                                outputExposure=postIsr)

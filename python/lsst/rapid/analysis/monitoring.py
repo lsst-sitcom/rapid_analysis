@@ -135,7 +135,7 @@ class Monitor():
                 if self.runIsr:
                     exp = self.bestEffort.getExposure(dataId)
                 else:
-                    exp = self.butler.get('raw', **dataId)
+                    exp = self.butler.get('raw', dataId=dataId)
 
                 # TODO: add logic to deal with amp overlay and chip center
                 # being mutually exclusive

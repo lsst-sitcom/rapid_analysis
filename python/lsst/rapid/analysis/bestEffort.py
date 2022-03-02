@@ -33,7 +33,6 @@ from lsst.rapid.analysis.butlerUtils import (LATISS_DEFAULT_COLLECTIONS, LATISS_
 # TODO: add attempt for fringe once registry & templates are fixed
 
 CURRENT_RUN = "LATISS/runs/quickLook/1"
-DATASET_NAME = 'quickLookExp'
 ALLOWED_REPOS = ['/repo/main', '/repo/LATISS', '/readonly/repo/main']
 
 
@@ -63,6 +62,7 @@ class BestEffortIsr():
     doWrite : `bool`, optional
         Write the outputs to the quickLook rerun/collection?
     """
+    _datasetName = 'quickLookExp'
 
     def __init__(self, repodir, *,
                  extraCollections=[], defaultExtraIsrOptions={}, doRepairCosmics=True, doWrite=True):
@@ -89,15 +89,45 @@ class BestEffortIsr():
         self._cache = {}
 
     def _applyConfigOverrides(self, config, overrides):
+        """Update a config class with a dict of options.
+
+        Parameters
+        ----------
+        config : `lsst.pex.config.Config`
+            The config class to update.
+
+        overrides : `dict`
+            The override options as a dict.
+
+        Raises
+        ------
+        ValueError
+            Raised if the override option isn't found in the config.
+        """
         for option, value in overrides.items():
             if hasattr(config, option):
                 setattr(config, option, value)
                 self.log.info(f"Set isr config override {option} to {value}")
             else:
-                self.log.warning(f"Override option {option} not found in isrConfig")
+                raise ValueError(f"Override option {option} not found in isrConfig")
 
     @staticmethod
     def _parseExpIdOrDataId(expIdOrDataId, **kwargs):
+        """Sanitize the expIdOrDataId to allow support both expIds and dataIds
+
+        Supports expId as an integer, or a complete or partial dict. The dict
+        is updated with the supplied kwargs.
+
+        Parameters
+        ----------
+        expIdOrDataId : `int` or `dict
+            The exposure id as an int or the dataId as as dict.
+
+        Returns
+        -------
+        dataId : `dict`
+            The sanitized dataId.
+        """
         if type(expIdOrDataId) == int:
             _dataId = {'expId': expIdOrDataId}
         elif type(expIdOrDataId) == dict:
@@ -110,19 +140,37 @@ class BestEffortIsr():
     def clearCache(self):
         self._cache = {}
 
-    def getExposure(self, expIdOrDataId, extraOptions={}, skipCosmics=False, **kwargs):
-        """extraOptions is a dict of options applied to this image only"""
+    def getExposure(self, expIdOrDataId, extraIsrOptions={}, skipCosmics=False, **kwargs):
+        """Get the postIsr and cosmic-repaired image for this dataId.
+
+        Parameters
+        ----------
+        expIdOrDataId : `dict`
+            The dataId
+
+        extraIsrOptions : `dict`, optional
+            extraIsrOptions is a dict of extra isr options applied to this
+            image only.
+
+        skipCosmics : `bool`, optional  # XXX THIS CURRENTLY DOESN'T WORK!
+            Skip doing cosmic ray repair for this image?
+
+        Returns
+        -------
+        exp : `lsst.afw.image.Exposure`
+            The postIsr exposure
+        """
         dataId = self._parseExpIdOrDataId(expIdOrDataId, **kwargs)
 
         try:
-            exp = self.butler.get(DATASET_NAME, **dataId)
+            exp = self.butler.get(self._datasetName, dataId=dataId)
             self.log.info("Found a ready-made quickLookExp in the repo. Returning that.")
             return exp
         except LookupError:
             pass
 
         try:
-            raw = self.butler.get('raw', **dataId)
+            raw = self.butler.get('raw', dataId=dataId)
         except LookupError:
             raise RuntimeError(f"Failed to retrieve raw for exp {dataId}") from None
 
@@ -137,7 +185,7 @@ class BestEffortIsr():
         # apply general overrides
         self._applyConfigOverrides(isrConfig, self.defaultExtraIsrOptions)
         # apply per-image overrides
-        self._applyConfigOverrides(isrConfig, extraOptions)
+        self._applyConfigOverrides(isrConfig, extraIsrOptions)
 
         isrParts = ['camera', 'bias', 'dark', 'flat', 'defects', 'linearizer', 'crosstalk', 'bfKernel',
                     'bfGains', 'ptc']
@@ -150,7 +198,7 @@ class BestEffortIsr():
                 continue
             try:
                 # TODO: add caching for flats
-                item = self.butler.get(component, **dataId)
+                item = self.butler.get(component, dataId=dataId)
                 self._cache[component] = item
                 isrDict[component] = self._cache[component]
             except (RuntimeError, LookupError, OperationalError):
@@ -161,8 +209,8 @@ class BestEffortIsr():
 
         if self.doWrite:
             try:
-                self.butler.put(quickLookExp, DATASET_NAME, dataId)
-                self.log.info(f'Put quickLookExp for {dataId}')
+                self.butler.put(quickLookExp, self._datasetName, dataId)
+                self.log.info(f'Put {self._datasetName} for {dataId}')
             except ConflictingDefinitionError:
                 self.log.warning('Skipped putting existing exp into collection! (ignore if there was a race)')
                 pass

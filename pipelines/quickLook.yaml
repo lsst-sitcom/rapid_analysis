@@ -3,5 +3,5 @@ tasks:
   quickLookTask:
     class: lsst.rapid.analysis.quickLook.QuickLookTask
     config:
-      doRepairCosmics: True  # XXX remove reassertion of defaults
-      doWrite: True
+      doRepairCosmics: true
+      doWrite: true
