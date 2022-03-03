@@ -47,7 +47,8 @@ from lsst.rapid.analysis.mountTorques import plotMountTracking
 from lsst.rapid.analysis.monitorPlotting import plotExp
 from lsst.rapid.analysis.butlerUtils import (makeDefaultLatissButler, LATISS_REPO_LOCATION_MAP, datasetExists,
                                              getMostRecentDataId, getExpIdFromDayObsSeqNum)
-from lsst.atmospec.utils import isDispersedDataId, dayObsIntToString
+from lsst.rapid.analysis.utils import dayObsIntToString
+from lsst.atmospec.utils import isDispersedDataId
 
 CHANNELS = ["summit_imexam", "summit_specexam", "auxtel_mount_torques",
             "auxtel_monitor"]
