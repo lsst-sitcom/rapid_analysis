@@ -19,6 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import eups
 import numpy as np
 from scipy.ndimage.filters import gaussian_filter
 import lsst.afw.detection as afwDetect
@@ -252,3 +253,19 @@ def checkRubinTvExternalPackages(exitIfNotFound=True, logger=None):
 
     if exitIfNotFound and (not hasGoogleStorage or not hasEfdClient):
         exit()
+
+
+def checkStackSetup():
+    ep = eups.Eups()
+    for tag in ep.findSetupProduct("lsst_distrib").tags:
+        if tag != "current":
+            print(f"You are running {tag} of lsst_distrib")
+
+    products = ep.findProducts(version='LOCAL:*', tags='setup')
+    if products:
+        print("\nLocally setup packages:")
+        print("-----------------------")
+        for product in products:
+            print(f"{product.name} setup at {product.dir}")
+    else:
+        print("\nNo packages are setup locally.")
