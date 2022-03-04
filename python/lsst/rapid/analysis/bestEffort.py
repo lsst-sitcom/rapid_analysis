@@ -204,8 +204,7 @@ class BestEffortIsr():
             except (RuntimeError, LookupError, OperationalError):
                 pass
 
-        quickLookExp = self.quickLookIsrTask.run(raw, **isrDict, isrBaseConfig=isrConfig,
-                                                 isGen3=True).outputExposure
+        quickLookExp = self.quickLookIsrTask.run(raw, **isrDict, isrBaseConfig=isrConfig).outputExposure
 
         if self.doWrite:
             try:
