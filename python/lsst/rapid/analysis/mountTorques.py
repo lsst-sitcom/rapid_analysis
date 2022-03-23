@@ -33,7 +33,7 @@ try:
 except ImportError:
     pass
 
-GOOD_IMAGE_TYPES = ['OBJECT', 'SKYEXP', 'ENGTEST']
+GOOD_IMAGE_TYPES = ['OBJECT', 'SKYEXP', 'ENGTEST', 'SCIENCE']
 
 
 def _getEfdData(client, dataSeries, startTime, endTime):
