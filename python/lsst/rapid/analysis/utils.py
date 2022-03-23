@@ -31,6 +31,9 @@ from lsst.obs.lsst.translators.lsst import FILTER_DELIMITER
 from lsst.obs.lsst.translators.latiss import AUXTEL_LOCATION
 
 from astro_metadata_translator import ObservationInfo
+from astropy.coordinates import SkyCoord, AltAz
+import astropy.units as u
+import lsst.geom as geom
 
 __all__ = ["SIGMATOFWHM", "FWHMTOSIGMA", "EFD_CLIENT_MISSING_MSG", "GOOGLE_CLOUD_MISSING_MSG",
            "AUXTEL_LOCATION", "countPixels", "quickSmooth", "argMax2d", "getImageStats", "detectObjectsInExp",
@@ -225,6 +228,50 @@ def getFocusFromHeader(exp):
     if 'FOCUSZ' in md:
         return md['FOCUSZ']
     return None
+
+
+def getExpPositionOffset(exp1, exp2):
+    # need the exps if we want altAz because we need the observation times
+    wcs1 = exp1.getWcs()
+    wcs2 = exp2.getWcs()
+    p1 = wcs1.getSkyOrigin()
+    p2 = wcs2.getSkyOrigin()
+
+    vi1 = exp1.getInfo().getVisitInfo()
+    vi2 = exp2.getInfo().getVisitInfo()
+
+    # AltAz via astropy
+    skyLocation1 = SkyCoord(p1.getRa().asRadians(), p1.getDec().asRadians(), unit=u.rad)
+    altAz1 = AltAz(obstime=vi1.date.toPython(), location=AUXTEL_LOCATION)
+    obsAltAz1 = skyLocation1.transform_to(altAz1)
+    alt1 = geom.Angle(obsAltAz1.alt.degree, geom.degrees)
+    az1 = geom.Angle(obsAltAz1.az.degree, geom.degrees)
+
+    skyLocation2 = SkyCoord(p2.getRa().asRadians(), p2.getDec().asRadians(), unit=u.rad)
+    altAz2 = AltAz(obstime=vi2.date.toPython(), location=AUXTEL_LOCATION)
+    obsAltAz2 = skyLocation2.transform_to(altAz2)
+    alt2 = geom.Angle(obsAltAz2.alt.degree, geom.degrees)
+    az2 = geom.Angle(obsAltAz2.az.degree, geom.degrees)
+
+    # ra/dec via the stack
+    # NB using the wcs not the exp visitInfo as that's unfitted
+    # and so is always identical for a given object/pointing
+    ra1 = p1[0]
+    ra2 = p2[0]
+    dec1 = p1[1]
+    dec2 = p2[1]
+
+    angular_offset = p1.separation(p2).asArcseconds()
+    delta_pixels = angular_offset / wcs1.getPixelScale().asArcseconds()
+
+    ret = pipeBase.Struct(deltaRa=ra1-ra2,
+                          deltaDec=dec1-dec2,
+                          deltaAlt=alt1-alt2,
+                          deltaAz=az1-az2,
+                          delta_pixel_magnitude=delta_pixels
+                          )
+
+    return ret
 
 
 def checkRubinTvExternalPackages(exitIfNotFound=True, logger=None):
