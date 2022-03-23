@@ -268,7 +268,8 @@ def getExpPositionOffset(exp1, exp2):
                           deltaDec=dec1-dec2,
                           deltaAlt=alt1-alt2,
                           deltaAz=az1-az2,
-                          delta_pixel_magnitude=delta_pixels
+                          delta_pixel_magnitude=delta_pixels,
+                          angular_offset_arcsec=angular_offset
                           )
 
     return ret
