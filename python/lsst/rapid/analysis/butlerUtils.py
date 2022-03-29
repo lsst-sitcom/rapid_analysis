@@ -223,7 +223,26 @@ def getSeqNumsForDayObs(butler, day_obs, extraWhere=''):
 
 
 def sortRecordsByAttribute(records, attribute):
-    """XXX Docs!
+    """Sort a set of records by a given attribute.
+
+    Parameters
+    ----------
+    records : `list` of `dict`
+        The records to be sorted.
+
+    attribute : `str`
+        The attribute to sort by.
+
+    Returns
+    -------
+    sortedRecords : `list` of `dict`
+        The sorted records
+
+    Notes
+    -----
+    TODO: DM-34240 Does this even work?! What happens when you have several
+    dayObs, and the seqNums therefore collide? The initial set() won't catch
+    that, so how does this then behave?!
     """
     records = list(records)  # must call list, otherwise can't check length later
     recordSet = set(records)

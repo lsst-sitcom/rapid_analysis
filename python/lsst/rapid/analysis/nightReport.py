@@ -357,6 +357,7 @@ class NightReporter():
 
 
 if __name__ == '__main__':
+    # TODO: DM-34239 Move this to be a butler-driven test
     if True:
         location = 'NCSA'
         nightReporter = NightReporter(location, 20200220)

@@ -402,11 +402,12 @@ class NonSpectralFocusAnalyzer():
         return results
 
 
-# if __name__ == '__main__':
-#     location = 'NCSA'
-#     analyzer = SpectralFocusAnalyzer(location)
-#     # dataId = {'dayObs': '2020-02-20', 'seqNum': 485}  # direct image
-#     dataId = {'day_obs': 20200312}
-#     seqNums = [121, 122]
-#     analyzer.getFocusData(dataId['day_obs'], seqNums, doDisplay=True)
-#     analyzer.fitDataAndPlot()
+if __name__ == '__main__':
+    # TODO: DM-34239 Move this to be a butler-driven test
+    location = 'NCSA'
+    analyzer = SpectralFocusAnalyzer(location)
+    # dataId = {'dayObs': '2020-02-20', 'seqNum': 485}  # direct image
+    dataId = {'day_obs': 20200312}
+    seqNums = [121, 122]
+    analyzer.getFocusData(dataId['day_obs'], seqNums, doDisplay=True)
+    analyzer.fitDataAndPlot()

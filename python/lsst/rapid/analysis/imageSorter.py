@@ -213,6 +213,7 @@ class ImageSorter():
 
 
 if __name__ == '__main__':
+    # TODO: DM-34239 Remove this
     fileList = ['/Users/merlin/rsync/animatorOutput/pngs/dayObs-2020-02-17-seqNum-232-calexp.png',
                 '/Users/merlin/rsync/animatorOutput/pngs/dayObs-2020-02-17-seqNum-233-calexp.png',
                 '/Users/merlin/rsync/animatorOutput/pngs/dayObs-2020-02-17-seqNum-234-calexp.png',

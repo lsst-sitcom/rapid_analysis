@@ -228,6 +228,7 @@ class BestEffortIsr():
 
 
 if __name__ == '__main__':
+    # TODO: DM-34239 Move this to be a butler-driven test
     repodir = '/repo/main'
     bestEffort = BestEffortIsr(repodir, doWrite=True)
     dataId = {'day_obs': 20200315, 'seq_num': 164, 'detector': 0}

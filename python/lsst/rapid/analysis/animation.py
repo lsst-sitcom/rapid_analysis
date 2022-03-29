@@ -349,6 +349,7 @@ def animateDay(butler, dayObs, outputPath, dataProductToPlot='quickLookExp'):
 
 
 if __name__ == '__main__':
+    # TODO: DM-34239 Move this to be a butler-driven test
     outputPath = '/home/mfl/animatorOutput/main/'
     butler = makeDefaultLatissButler('NCSA')
 
