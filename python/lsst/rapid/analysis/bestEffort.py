@@ -39,7 +39,7 @@ ALLOWED_REPOS = ['/repo/main', '/repo/LATISS', '/readonly/repo/main']
 class BestEffortIsr():
     """Instantiate a BestEffortIsr object.
 
-    Acceptable repodir values are currently listen in ALLOWED_REPOS. This will
+    Acceptable repodir values are currently listed in ALLOWED_REPOS. This will
     be updated (removed) once DM-33849 is done.
 
     defaultExtraIsrOptions is a dict of options applied to all images.
@@ -138,6 +138,11 @@ class BestEffortIsr():
         return _dataId
 
     def clearCache(self):
+        """Clear the internal cache of loaded calibration products.
+
+        Only necessary if you want to use an existing bestEffortIsr object
+        after adding new calibration products to the calibration collection.
+        """
         self._cache = {}
 
     def getExposure(self, expIdOrDataId, extraIsrOptions={}, skipCosmics=False, **kwargs):
@@ -191,6 +196,11 @@ class BestEffortIsr():
                     'bfGains', 'ptc']
 
         isrDict = {}
+        # we build a cache of all the isr components which will be used to save
+        # the IO time on subsequent calls. This assumes people will not update
+        # calibration products while this object lives, but this is a fringe
+        # use case, and if they do, all they would need to do would be call
+        # .clearCache() and this will rebuild with the new products.
         for component in isrParts:
             if component in self._cache and component != 'flat':
                 self.log.info(f"Using {component} from cache...")

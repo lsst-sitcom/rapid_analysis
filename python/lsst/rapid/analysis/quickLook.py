@@ -50,6 +50,8 @@ class QuickLookIsrTaskConnections(IsrTaskConnections):
     minimum values to zero.
     """
     def __init__(self, *, config=None):
+        # programatically clone all of the connections from isrTask
+        # settin minimum values to zero for everything except the ccdExposure
         super().__init__(config=IsrTask.ConfigClass())  # need a dummy config, isn't used other than for ctor
         for name, connection in self.allConnections.items():
             if hasattr(connection, 'minimum'):
@@ -66,6 +68,9 @@ class QuickLookIsrTaskConnections(IsrTaskConnections):
             storageClass="ExposureF",
             dimensions=("instrument", "exposure", "detector"),
         )
+        # set like this to make it explicit that the outputExposure
+        # and the exposure are identical. The only reason there are two is for
+        # API compatibility.
         self.outputExposure = exposure
 
 
@@ -256,6 +261,9 @@ class QuickLookIsrTask(pipeBase.PipelineTask):
                     installPsfTask = InstallGaussianPsfTask()
                     installPsfTask.run(postIsr)
 
+                # TODO: try adding a reasonably wide Gaussian as a temp PSF
+                # and then just running repairTask on its own without any
+                # imChar. It should work, and be faster.
                 repairConfig = CharacterizeImageTask.ConfigClass()
                 repairConfig.doMeasurePsf = False
                 repairConfig.doApCorr = False

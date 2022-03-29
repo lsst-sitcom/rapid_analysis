@@ -344,7 +344,7 @@ class ButlerUtilsTestCase(lsst.utils.tests.TestCase):
         return
 
     def test__repoDirToLocation(self):
-        # XXX write test
+        # TODO: DM-34238 Remove this test and all mentions of repoDirToLocation
         # Actually pretty sure this whole method is going away
         # it's pretty gross, and only used by bestEffortIsr because I didn't
         # want to change its API in the middle of the last run.
