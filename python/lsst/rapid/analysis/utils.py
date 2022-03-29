@@ -19,12 +19,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import eups
 import numpy as np
 from scipy.ndimage.filters import gaussian_filter
 import lsst.afw.detection as afwDetect
 import lsst.afw.math as afwMath
 import lsst.pipe.base as pipeBase
+import lsst.utils.packages as packageUtils
 import logging
 
 from lsst.obs.lsst.translators.lsst import FILTER_DELIMITER
@@ -256,16 +256,41 @@ def checkRubinTvExternalPackages(exitIfNotFound=True, logger=None):
 
 
 def checkStackSetup():
-    ep = eups.Eups()
-    for tag in ep.findSetupProduct("lsst_distrib").tags:
-        if tag != "current":
-            print(f"You are running {tag} of lsst_distrib")
+    """Check which weekly tag is being used and which local packages are setup.
 
-    products = ep.findProducts(version='LOCAL:*', tags='setup')
-    if products:
+    Prints the weekly tag(s) setup for lsst_distrib and any locally setup
+    packages, as well as the paths to them.
+
+    Notes
+    -----
+    Uses print() instead of logger messages as this should simply print them
+    without being vulnerable to any log messages potentially being diverted.
+    """
+    packages = packageUtils.getEnvironmentPackages(include_all=True)
+
+    lsstDistribHashAndTags = packages['lsst_distrib']  # looks something like 'g4eae7cb9+1418867f (w_2022_13)'
+    lsstDistribTags = lsstDistribHashAndTags.split()[1]
+    if len(lsstDistribTags.split()) == 1:
+        tag = lsstDistribTags.replace('(', '')
+        tag = tag.replace(')', '')
+        print(f"You are running {tag} of lsst_distrib")
+    else:  # multiple weekly tags found for lsst_distrib!
+        print(f'The version of lsst_distrib you have is compatible with: {lsstDistribTags}')
+
+    localPackages = []
+    localPaths = []
+    for package, tags in packages.items():
+        if tags.startswith('LOCAL:'):
+            path = tags.split('LOCAL:')[1]
+            path = path.split('@')[0]  # don't need the git SHA etc
+            localPaths.append(path)
+            localPackages.append(package)
+
+    if localPackages:
         print("\nLocally setup packages:")
         print("-----------------------")
-        for product in products:
-            print(f"{product.name} setup at {product.dir}")
+        maxLen = max(len(package) for package in localPackages)
+        for package, path in zip(localPackages, localPaths):
+            print(f"{package:<{maxLen}s} at {path}")
     else:
-        print("\nNo packages are setup locally.")
+        print("\nNo locally setup packages (using a vanilla stack)")
