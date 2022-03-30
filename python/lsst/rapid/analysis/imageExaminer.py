@@ -39,7 +39,7 @@ import matplotlib.patches as patches
 import lsst.geom as geom
 from scipy.optimize import curve_fit
 from lsst.pipe.tasks.quickFrameMeasurement import QuickFrameMeasurementTask, QuickFrameMeasurementTaskConfig
-from lsst.rapid.analysis.utils import getImageStats, argMax2d, countPixels
+from lsst.rapid.analysis.utils import getImageStats, argMax2d, countPixels, quickSmooth
 
 
 SIGMATOFWHM = 2.0*np.sqrt(2.0*np.log(2.0))
@@ -333,30 +333,6 @@ class ImageExaminer():
         xx, yy = np.meshgrid(xx, yy)
         return xx, yy
 
-    @staticmethod
-    def quickSmooth(data, sigma=2):
-        """Perform a quick smoothing of the image.
-
-        Not to be used for scientific purposes, but improves the stretch and
-        visual rendering of low SNR against the sky background in cutouts.
-
-        Parameters
-        ----------
-        data : `np.array`
-            The image data to smooth
-
-        sigma : `float`, optional
-            The size of the smoothing kernel.
-
-        Returns
-        -------
-        smoothData : `np.array`
-            The smoothed data
-        """
-        kernel = [sigma, sigma]
-        smoothData = gaussian_filter(data, kernel, mode='constant')
-        return smoothData
-
     def radialAverageAndFit(self):
         """Calculate flux vs radius from the star's centroid and fit the width.
 
@@ -585,7 +561,7 @@ class ImageExaminer():
             ax = fig.add_subplot(111)
             plotDirect = True
 
-        imData = self.quickSmooth(self.exp.image.array, 2.5)
+        imData = quickSmooth(self.exp.image.array, 2.5)
         vmin = np.percentile(imData, 10)
         vmax = np.percentile(imData, 99.9)
         ax.imshow(imData, norm=LogNorm(vmin=vmin, vmax=vmax),
