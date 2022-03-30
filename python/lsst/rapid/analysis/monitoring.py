@@ -33,6 +33,30 @@ from lsst.rapid.analysis.butlerUtils import (makeDefaultLatissButler, LATISS_REP
 
 
 class Monitor():
+    """Create a monitor for AuxTel.
+
+    Scans the butler repo for new images and sends each one, after running
+    bestEffortIsr, to the display.
+
+    Now largely superceded by RubinTV.
+
+    Parameters
+    ----------
+    location : `str`
+        The location
+
+    Returns
+    -------
+    location : `str`
+        The location. To be removed in DM-34238.
+
+    fireflyDisplay : `lsst.afw.display.Display`
+        A Firefly display instance.
+
+    Notes
+    -----
+    TODO: DM-34238 remove location from init
+    """
     cadence = 1  # in seconds
     runIsr = True
 
@@ -117,6 +141,13 @@ class Monitor():
             self.display.dot(str(item), x, y, size, ctype='red', fontFamily="courier")
 
     def run(self, durationInSeconds=-1):
+        """Run the monitor, displaying new images as they are taken.
+
+        Parameters
+        ----------
+        durationInSeconds : `int`, optional
+            How long to run for. Use -1 for infinite.
+        """
 
         if durationInSeconds == -1:
             nLoops = int(1e9)
