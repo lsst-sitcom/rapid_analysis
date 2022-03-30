@@ -50,7 +50,43 @@ def gauss(x, a, x0, sigma):
 
 
 class ImageExaminer():
-    """Class for the reproducing the functionality of imexam.
+    """Class for the reproducing some of the functionality of imexam.
+
+    For an input image create a summary plot showing:
+        A rendering of the whole image
+        A cutout of main source's PSF
+        A 3d surface plot of the main star
+        A contour plot of the main star
+        x, y slices through the main star's centroid
+        Radial plot of the main star
+        Encircled energy as a function of radius
+        A text box with assorted image statistics and measurements
+
+    Parameters
+    ----------
+    exp : `lsst.afw.image.Exposure`
+        The input exposure to analyze.
+
+    doTweakCentroid : `bool`, optional
+        Tweak the centroid (either the one supplied, or the one found by QFM if
+        none supplied)? See ``tweakCentroid`` for full details of the
+        behavior.
+
+    doForceCoM : `bool`, optional
+        Use the centre of mass inside the cutout box as the star's centroid?
+
+    savePlots : `str`, optional
+        Filename to save the plot to. Image not saved if falsey.
+
+    centroid : `tuple` of `float`, optional
+        Centroid of the star to treat as the main source. If ``None``, use
+        ``lsst.pipe.tasks.quickFrameMeasurement.QuickFrameMeasurementTask`` to
+        find the main source in the image.
+
+    boxHalfSize : `int`, optional
+        The half-size of the cutout to use for the star's PSF and the radius
+        to use for the radial plots.
+
     """
     astroMappings = {"object": "Object name",
                      "mjd": "MJD",
@@ -66,7 +102,7 @@ class ImageExaminer():
     imageMappings = {"centroid": "Centroid",
                      "maxValue": "Max pixel value",
                      "maxPixelLocation": "Max pixel location",
-                     "multipleMaxPixels": "Mutiple max pixels?",
+                     "multipleMaxPixels": "Multiple max pixels?",
                      "nBadPixels": "Num bad pixels",
                      "nSatPixels": "Num saturated pixels",
                      "percentile99": "99th percentile",
@@ -120,12 +156,56 @@ class ImageExaminer():
         self.radialAverageAndFit()
 
     def intCoords(self, coords):
+        """Get integer versions of the coordinates for dereferencing arrays.
+
+        Parameters are not rounded, but just cast as ints.
+
+        Parameters
+        ----------
+        coords : `tuple` of `float` or `int`
+            The coordinates.
+
+        Returns
+        -------
+        intCoords : `np.array` of `int`
+            The coordinates as integers.
+        """
         return np.asarray(coords, dtype=int)
 
     def intRoundCoords(self, coords):
+        """Get rounded integer versions of coordinates for dereferencing arrays
+
+        Parameters are rounded to the nearest integer value and returned.
+
+        Parameters
+        ----------
+        coords : `tuple` of `float` or `int`
+            The coordinates.
+
+        Returns
+        -------
+        intCoords : `np.array` of `int`
+            The coordinates as integers, rounded to the nearest values.
+        """
         return (int(round(coords[0])), int(round(coords[1])))
 
     def tweakCentroid(self, doForceCoM):
+        """Tweak the source centroid. Used to deal with irregular PSFs.
+
+        Given the star's cutout, tweak the centroid (either the one supplied
+        manually, or the one from QFM) as follows:
+
+        If ``doForceCoM`` then always use the centre of mass of the cutout box
+        as the centroid.
+        If the star has multiple maximum values (e.g. if it is saturated and
+        interpolated, or otherwise) then use the centre of mass of the cutout.
+        Otherwise, use the position of the brightest pixel in the cutout.
+
+        Parameters
+        ----------
+        doForceCoM : `bool`
+            Forcing using the centre of mass of the cutout as the centroid?
+        """
         peak, uniquePeak, otherPeaks = argMax2d(self.data)
         # saturated stars don't tend to have ambiguous max pixels
         # due to the bunny ears left after interpolation
@@ -144,22 +224,59 @@ class ImageExaminer():
         self.centroid = (x, y)
 
     def getStats(self):
+        """Get the image stats.
+
+        Returns
+        -------
+        stats : `dict`
+            A dictionary of the image statistics.
+        """
         return self.imStats
 
     @staticmethod
     def _calcMaxBoxHalfSize(centroid, chipBbox):
-        """Calc the minimum distance between the centroid and chip edge."""
+        """Calculate the maximum size the box can be without going outside the
+        detector's bounds.
+
+        Returns the smallest distance between the centroid and any of the
+        chip's edges.
+
+        Parameters
+        ----------
+        centroid : `tuple` of `float`
+            The centroid.
+
+        chipBbox : `lsst.geom.Box`
+            The detector's bounding box.
+
+        Returns
+        -------
+        maxSize : `int`
+            The maximum size for the box.
+        """
         ll = chipBbox.getBeginX()
         r = chipBbox.getEndX()
         d = chipBbox.getBeginY()
         u = chipBbox.getEndY()
 
         x, y = np.array(centroid, dtype=int)
-        maxSize = np.min([(x-ll), (r-x-1), (u-y-1), (y-d)])  # extar -1 in x because [)
+        maxSize = np.min([(x-ll), (r-x-1), (u-y-1), (y-d)])  # extra -1 in x because [)
         assert maxSize >= 0, "Box calculation went wrong"
         return maxSize
 
     def _calcBbox(self, centroid):
+        """Get the largest valid bounding box, given the centroid and box size.
+
+        Parameters
+        ----------
+        centroid : `tuple` of `float`
+            The centroid
+
+        Returns
+        -------
+        bbox : `lsst.geom.Box2I`
+            The bounding box
+        """
         centroidPoint = geom.Point2I(centroid)
         extent = geom.Extent2I(1, 1)
         bbox = geom.Box2I(centroidPoint, extent)
@@ -181,12 +298,35 @@ class ImageExaminer():
         return bbox
 
     def getStarBoxData(self):
+        """Get the image data for the star.
+
+        Calculates the maximum valid box, and uses that to return the image
+        data, setting self.starBbox and self.nSatPixInBox as this method
+        changes the bbox.
+
+        Returns
+        -------
+        data : `np.array`
+            The image data
+        """
         bbox = self._calcBbox(self.centroid)
         self.starBbox = bbox  # needed elsewhere, so always set when calculated
         self.nSatPixInBox = countPixels(self.exp.maskedImage[self.starBbox], 'SAT')
         return self.exp.image[bbox].array
 
     def getMeshGrid(self, data):
+        """Get the meshgrid for a data array.
+
+        Parameters
+        ----------
+        data : `np.array`
+            The image data array.
+
+        Returns
+        -------
+        xxyy : `tuple` of `np.array`
+            The xx, yy as calculated by np.meshgrid
+        """
         xlen, ylen = data.shape
         xx = np.arange(-1*xlen/2, xlen/2, 1)
         yy = np.arange(-1*ylen/2, ylen/2, 1)
@@ -195,11 +335,40 @@ class ImageExaminer():
 
     @staticmethod
     def quickSmooth(data, sigma=2):
+        """Perform a quick smoothing of the image.
+
+        Not to be used for scientific purposes, but improves the stretch and
+        visual rendering of low SNR against the sky background in cutouts.
+
+        Parameters
+        ----------
+        data : `np.array`
+            The image data to smooth
+
+        sigma : `float`, optional
+            The size of the smoothing kernel.
+
+        Returns
+        -------
+        smoothData : `np.array`
+            The smoothed data
+        """
         kernel = [sigma, sigma]
         smoothData = gaussian_filter(data, kernel, mode='constant')
         return smoothData
 
     def radialAverageAndFit(self):
+        """Calculate flux vs radius from the star's centroid and fit the width.
+
+        Calculate the flux vs distance from the star's centroid and fit
+        a Gaussian to get a measurement of the width.
+
+        Also calculates the various encircled energy metrics.
+
+        Notes
+        -----
+        Nothing is returned, but sets many value in the class.
+        """
         xlen, ylen = self.data.shape
         center = np.array([xlen/2, ylen/2])
         # TODO: add option to move centroid to max pixel for radial (argmax 2d)
@@ -259,10 +428,28 @@ class ImageExaminer():
         """Radius in pixels with the given percentage of encircled energy.
 
         100% is at the boxHalfWidth dy definition.
+
+        Parameters
+        ----------
+        percentage : `float` or `int`
+            The percentage threshold to return.
+
+        Returns
+        -------
+        radius : `float`
+            The radius at which the ``percentage`` threshold is crossed.
         """
         return self.radii[np.argmin(np.abs((percentage/100)-self.cumFluxesNorm))]
 
     def plotRadialAverage(self, ax=None):
+        """Make the radial average plot.
+
+        Parameters
+        ----------
+        ax : `maplotlib.axes`, optional
+            If ``None`` a new figure is created. Supply axes if including this
+            as a subplot.
+        """
         plotDirect = False
         if not ax:
             ax = plt.subplot(111)
@@ -290,6 +477,17 @@ class ImageExaminer():
             plt.show()
 
     def plotContours(self, ax=None, nContours=10):
+        """Make the contour plot.
+
+        Parameters
+        ----------
+        ax : `maplotlib.axes`, optional
+            If ``None`` a new figure is created. Supply axes if including this
+            as a subplot.
+
+        nContours : `int`, optional
+            The number of contours to use.
+        """
         plotDirect = False
         if not ax:
             fig = plt.figure(figsize=(8, 8))  # noqa F841
@@ -310,6 +508,17 @@ class ImageExaminer():
             plt.show()
 
     def plotSurface(self, ax=None, useColor=True):
+        """Make the surface plot.
+
+        Parameters
+        ----------
+        ax : `maplotlib.axes`, optional
+            If ``None`` a new figure is created. Supply axes if including this
+            as a subplot.
+
+        useColor : `bool`, optional
+            Plot at as a surface if ``True``, else plot as a wireframe.
+        """
         plotDirect = False
         if not ax:
             fig, ax = plt.subplots(subplot_kw={"projection": "3d"}, figsize=(10, 10))
@@ -329,6 +538,17 @@ class ImageExaminer():
             plt.show()
 
     def plotStar(self, ax=None, logScale=False):
+        """Make the PSF cutout plot.
+
+        Parameters
+        ----------
+        ax : `maplotlib.axes`, optional
+            If ``None`` a new figure is created. Supply axes if including this
+            as a subplot.
+
+        logScale : `bool`, optional
+            Use a log scale?
+        """
         # TODO: display centroid in use
         plotDirect = False
         if not ax:
@@ -351,6 +571,14 @@ class ImageExaminer():
             plt.show()
 
     def plotFullExp(self, ax=None):
+        """Make the full image cutout plot.
+
+        Parameters
+        ----------
+        ax : `maplotlib.axes`, optional
+            If ``None`` a new figure is created. Supply axes if including this
+            as a subplot.
+        """
         plotDirect = False
         if not ax:
             fig = plt.figure(figsize=(10, 10))
@@ -373,6 +601,17 @@ class ImageExaminer():
             plt.show()
 
     def plotRowColSlices(self, ax=None, logScale=False):
+        """Make the row and column slice plot.
+
+        Parameters
+        ----------
+        ax : `maplotlib.axes`, optional
+            If ``None`` a new figure is created. Supply axes if including this
+            as a subplot.
+
+        logScale : `bool`, optional
+            Use a log scale?
+        """
         # TODO: display centroid in use
 
         # slice through self.boxHalfSize because it's always the point being
@@ -401,7 +640,16 @@ class ImageExaminer():
             plt.show()
 
     def plotStats(self, ax, lines):
+        """Make the stats box 'plot'.
 
+        Parameters
+        ----------
+        ax : `maplotlib.axes`
+            Axes to use.
+
+        lines : `list` of `str`
+            The data to include in the text box
+        """
         text = "\n".join([line for line in lines])
 
         stats_text = AnchoredText(text, loc="center", pad=0.5,
@@ -411,6 +659,14 @@ class ImageExaminer():
         ax.axis('off')
 
     def plotCurveOfGrowth(self, ax=None):
+        """Make the encircled energy plot.
+
+        Parameters
+        ----------
+        ax : `maplotlib.axes`, optional
+            If ``None`` a new figure is created. Supply axes if including this
+            as a subplot.
+        """
         plotDirect = False
         if not ax:
             ax = plt.subplot(111)
@@ -426,6 +682,10 @@ class ImageExaminer():
             plt.show()
 
     def plot(self):
+        """Plot all the subplots together, including the stats box.
+
+        Image is saved if ``savefig`` was set.
+        """
         figsize = 6
         fig = plt.figure(figsize=(figsize*3, figsize*2))
 
@@ -479,6 +739,22 @@ class ImageExaminer():
 
     @staticmethod
     def translateStats(imStats, mappingDict):
+        """Create the text for the stats box from the stats themselves.
+
+        Parameters
+        ----------
+        imStats : `lsst.pipe.base.Struct`
+            A container with attributes containing measurements and statistics
+            for the image.
+
+        mappingDict : `dict` of `str`
+            A mapping from attribute name to name for rendereding as text.
+
+        Returns
+        -------
+        lines : `list` of `str`
+            The translated lines of text.
+        """
         lines = []
         for k, v in mappingDict.items():
             try:
@@ -495,6 +771,11 @@ class ImageExaminer():
         return lines
 
     def plotAll(self):
+        """Make each of the plots, individually.
+
+        Makes all the plots, full size, one by one, as opposed to plot() which
+        creates a single image containing all the plots.
+        """
         self.plotStar()
         self.plotRadialAverage()
         self.plotContours()

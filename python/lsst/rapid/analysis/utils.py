@@ -119,6 +119,19 @@ def dayObsSeqNumToVisitId(dayObs, seqNum):
 
 
 def getImageStats(exp):
+    """Calculate a grab-bag of stats for an image. Must remain fast.
+
+    Parameters
+    ----------
+    exp : `lsst.afw.image.Exposure`
+        The input exposure.
+
+    Returns
+    -------
+    stats : `lsst.pipe.base.Struct`
+        A container with attributes containing measurements and statistics
+        for the image.
+    """
     result = pipeBase.Struct()
 
     info = exp.getInfo()
