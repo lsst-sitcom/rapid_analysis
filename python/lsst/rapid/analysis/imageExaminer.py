@@ -27,7 +27,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy.linalg import norm
 
-from scipy.ndimage.filters import gaussian_filter
 import scipy.ndimage as ndImage
 
 from matplotlib import cm
