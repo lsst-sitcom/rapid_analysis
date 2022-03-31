@@ -49,6 +49,8 @@ KEY_MAPPER = {'OBJECT': 'object',
               'MJD-BEG': 'datetime_begin',
               }
 
+# TODO: DM-34250 rewrite (and document) this whole file.
+
 
 def getValue(key, header, stripUnits=True):
     """Get a header value the Right Way.

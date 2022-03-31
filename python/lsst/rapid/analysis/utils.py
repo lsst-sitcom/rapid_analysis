@@ -49,11 +49,44 @@ GOOGLE_CLOUD_MISSING_MSG = ('ImportError: Google cloud storage not found. Please
 
 
 def countPixels(maskedImage, maskPlane):
+    """Count the number of pixels in an image with a given mask bit set.
+
+    Parameters
+    ----------
+    maskedImage : `lsst.afw.image.MaskedImage`
+        The masked image,
+
+    maskPlane : `str`
+        The name of the bitmask.
+
+    Returns
+    -------
+    count : `int``
+        The number of pixels in with the selected mask bit
+    """
     bit = maskedImage.mask.getPlaneBitMask(maskPlane)
     return len(np.where(np.bitwise_and(maskedImage.mask.array, bit))[0])
 
 
 def quickSmooth(data, sigma=2):
+    """Perform a quick smoothing of the image.
+
+    Not to be used for scientific purposes, but improves the stretch and
+    visual rendering of low SNR against the sky background in cutouts.
+
+    Parameters
+    ----------
+    data : `np.array`
+        The image data to smooth
+
+    sigma : `float`, optional
+        The size of the smoothing kernel.
+
+    Returns
+    -------
+    smoothData : `np.array`
+        The smoothed data
+    """
     kernel = [sigma, sigma]
     smoothData = gaussian_filter(data, kernel, mode='constant')
     return smoothData
@@ -66,6 +99,11 @@ def argMax2d(array):
     maximum value, e.g. returns
 
     (12, 34), False, [(56,78), (910, 1112)]
+
+    Parameters
+    ----------
+    array : `np.array`
+        The data
 
     Returns
     -------
@@ -88,6 +126,20 @@ def argMax2d(array):
 
 
 def dayObsIntToString(dayObs):
+    """Convert an integer dayObs to a dash-delimited string.
+
+    e.g. convert the hard to read 20210101 to 2021-01-01
+
+    Parameters
+    ----------
+    dayObs : `int`
+        The dayObs.
+
+    Returns
+    -------
+    dayObs : `str`
+        The dayObs as a string.
+    """
     assert isinstance(dayObs, int)
     dStr = str(dayObs)
     assert len(dStr) == 8
@@ -97,15 +149,17 @@ def dayObsIntToString(dayObs):
 def dayObsSeqNumToVisitId(dayObs, seqNum):
     """Get the visit id for a given dayObs/seqNum.
 
-    dayObs : int
+    Parameters
+    ----------
+    dayObs : `int`
         The dayObs.
 
-    seqNum : int
+    seqNum : `int`
         The seqNum.
 
     Returns
     -------
-    visitId : int
+    visitId : `int`
         The visitId.
 
     Notes
@@ -192,7 +246,26 @@ def getImageStats(exp):
 
 
 def detectObjectsInExp(exp, nSigma=10, nPixMin=10, grow=0):
-    """Return the footPrintSet for the objects in a postISR exposure."""
+    """Quick and dirty object detection for an expsure.
+
+    Return the footPrintSet for the objects in a preferably-postISR exposure.
+
+    Parameters
+    ----------
+    exp : `lsst.afw.image.Exposure`
+        The exposure to detect objects in.
+    nSigma : `float`
+        The number of sigma for detection.
+    nPixMin : `int`
+        The minimum number of pixels in an object for detection.
+    grow : `int`
+        The number of pixels to grow the footprint by after detection.
+
+    Returns
+    -------
+    footPrintSet : `lsst.afw.detection.FootprintSet`
+        The set of footprints in the image.
+    """
     median = np.nanmedian(exp.image.array)
     exp.image -= median
 
@@ -207,7 +280,18 @@ def detectObjectsInExp(exp, nSigma=10, nPixMin=10, grow=0):
 
 
 def humanNameForCelestialObject(objName):
-    """Returns a list of all human names for obj, or [] if none are found."""
+    """Returns a list of all human names for obj, or [] if none are found.
+
+    Parameters
+    ----------
+    objName : `str`
+        The/a name of the object.
+
+    Returns
+    -------
+    names : `list` of `str`
+        The names found for the object
+    """
     from astroquery.simbad import Simbad
     results = []
     try:
@@ -221,6 +305,26 @@ def humanNameForCelestialObject(objName):
 
 
 def _getAltAzZenithsFromSeqNum(butler, dayObs, seqNumList):
+    """Get the alt, az and zenith angle for the seqNums of a given dayObs.
+
+    Parameters
+    ----------
+    butler : `lsst.daf.butler.Butler`
+        The butler to query.
+    dayObs : `int`
+        The dayObs.
+    seqNumList : `list` of `int`
+        The seqNums for which to return the alt, az and zenith
+
+    Returns
+    -------
+    azimuths : `list` of `float`
+        List of the azimuths for each seqNum
+    elevations : `list` of `float`
+        List of the elevations for each seqNum
+    zeniths : `list` of `float`
+        List of the zenith angles for each seqNum
+    """
     azimuths, elevations, zeniths = [], [], []
     for seqNum in seqNumList:
         md = butler.get('raw.metadata', day_obs=dayObs, seq_num=seqNum, detector=0)
@@ -234,6 +338,18 @@ def _getAltAzZenithsFromSeqNum(butler, dayObs, seqNumList):
 
 
 def getFocusFromHeader(exp):
+    """Get the raw focus value from the header.
+
+    Parameters
+    ----------
+    exp : `lsst.afw.image.exposure`
+        The exposure.
+
+    Returns
+    -------
+    focus : `float` or `None`
+        The focus value if found, else ``None``.
+    """
     md = exp.getMetadata()
     if 'FOCUSZ' in md:
         return md['FOCUSZ']
@@ -241,6 +357,21 @@ def getFocusFromHeader(exp):
 
 
 def checkRubinTvExternalPackages(exitIfNotFound=True, logger=None):
+    """Check whether the prerequsite installs for RubinTV are present.
+
+    Some packages which aren't distributed with any metapackage are required
+    to run RubinTV. This function is used to check if they're present so
+    that unprotected imports don't cause the package to fail to import. It also
+    allows checking in a singple place, given that all are necessary for
+    RubinTV's running.
+
+    Parameters
+    ----------
+    exitIfNotFound : `bool`
+        Terminate execution if imports are not present? Useful in bin scripts.
+    logger : `logging.Log`
+        The logger used to warn is packages are not present.
+    """
     if not logger:
         logger = logging.getLogger(__name__)
 
@@ -271,8 +402,9 @@ def checkRubinTvExternalPackages(exitIfNotFound=True, logger=None):
 def checkStackSetup():
     """Check which weekly tag is being used and which local packages are setup.
 
-    Prints the weekly tag(s) setup for lsst_distrib and any locally setup
-    packages, as well as the paths to them.
+    Designed primarily for use in notbooks/observing, this prints the weekly
+    tag(s) are setup for lsst_distrib, and lists any locally setup packages and
+    the path to each.
 
     Notes
     -----
