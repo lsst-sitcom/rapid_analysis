@@ -102,7 +102,7 @@ def _waitForDataProduct(butler, dataProduct, dataId, logger, maxTime=20):
             return butler.get(dataProduct, dataId)
         else:
             sleep(cadence)
-    logger.warn(f'Waited {maxTime}s for {dataProduct} for {dataId} to no avail')
+    logger.warning(f'Waited {maxTime}s for {dataProduct} for {dataId} to no avail')
     return None
 
 
@@ -282,7 +282,7 @@ class ImExaminerChannel():
         except Exception as e:
             if self.doRaise:
                 raise RuntimeError(f"Error processing {dataId}") from e
-            self.log.warn(f"Skipped imExam on {dataId} because {repr(e)}")
+            self.log.warning(f"Skipped imExam on {dataId} because {repr(e)}")
             return None
 
     def run(self):
