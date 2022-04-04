@@ -385,10 +385,10 @@ def checkRubinTvExternalPackages(exitIfNotFound=True, logger=None):
         pass
 
     if not hasGoogleStorage:
-        logger.warn(GOOGLE_CLOUD_MISSING_MSG)
+        logger.warning(GOOGLE_CLOUD_MISSING_MSG)
 
     if not hasEfdClient:
-        logger.warn(EFD_CLIENT_MISSING_MSG)
+        logger.warning(EFD_CLIENT_MISSING_MSG)
 
     if exitIfNotFound and (not hasGoogleStorage or not hasEfdClient):
         exit()

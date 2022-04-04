@@ -151,7 +151,7 @@ class Animator():
         if missingData:
             for dId in missingData:
                 msg = f"Failed to find {self.dataProductToPlot} for {dId}"
-                logger.warn(msg)
+                logger.warning(msg)
                 self.dataIdList.remove(dId)
             logger.info(f"Of the {len(dIdsWithoutPngs)} dataIds without pngs, {len(missingData)}"
                         " did not have the corresponding dataset existing")
@@ -176,7 +176,7 @@ class Animator():
 
         # stage files in temp dir with numbers prepended to filenames
         if not self.dataIdList:
-            logger.warn('No files to animate - nothing to do')
+            logger.warning('No files to animate - nothing to do')
             return
 
         logger.info('Copying files to ordered temp dir...')
@@ -252,7 +252,7 @@ class Animator():
             exp = self.butler.get(self.dataProductToPlot, dataId)
         except Exception:
             # oh no, that should never happen, but it does! Let's just skip
-            logger.warn(f'Skipped {dataId}, because {self.dataProductToPlot} retrieval failed!')
+            logger.warning(f'Skipped {dataId}, because {self.dataProductToPlot} retrieval failed!')
             return
         toDisplay = exp
         if self.smoothImages:
@@ -277,7 +277,7 @@ class Animator():
                 else:
                     self.disp.dot('x', 2000, 2000, ctype='red', size=2000)
             except Exception:
-                logger.warn(f"Failed to find OBJECT location for {dataId}")
+                logger.warning(f"Failed to find OBJECT location for {dataId}")
 
         deltaH = -0.05
         deltaV = -0.05

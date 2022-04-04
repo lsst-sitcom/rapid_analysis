@@ -68,7 +68,7 @@ def _saveToLibrary(libraryFilename, headersDict, dataDict):
 def _findKeyForValue(dictionary, value, warnOnCollision=True, returnCollisions=False):
     listOfKeys = [k for (k, v) in dictionary.items() if v == value]
     if warnOnCollision and len(listOfKeys) != 1:
-        logger.warn("Found multiple keys for value! Returning only first.")
+        logger.warning("Found multiple keys for value! Returning only first.")
     if returnCollisions:
         return listOfKeys
     return listOfKeys[0]
@@ -137,16 +137,17 @@ def buildHashAndHeaderDicts(fileList, dataHdu='Segment00', libraryLocation=None)
                 h = _hashFile(f, dataHdu, s)
                 if h in dataDict.values():
                     collision = _findKeyForValue(dataDict, h, warnOnCollision=False)
-                    logger.warn(f"Duplicate file (or hash collision!) for files {filename} and {collision}!")
+                    logger.warning(f"Duplicate file (or hash collision!) for files {filename} and "
+                                   f"{collision}!")
                     if filecmp.cmp(filename, collision):
-                        logger.warn("Filecmp shows files are identical")
+                        logger.warning("Filecmp shows files are identical")
                     else:
-                        logger.warn("Filecmp shows files differ - "
-                                    "likely just zeros for data (or a genuine hash collision!)")
+                        logger.warning("Filecmp shows files differ - "
+                                       "likely just zeros for data (or a genuine hash collision!)")
 
                 dataDict[filename] = h
             except Exception:
-                logger.warn(f"Failed to load {filename} - file is likely corrupted.")
+                logger.warning(f"Failed to load {filename} - file is likely corrupted.")
 
     # we have always added to this, so save it back over the original
     if libraryLocation and len(filesToLoad) > 0:

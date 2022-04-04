@@ -102,7 +102,7 @@ def _waitForDataProduct(butler, dataProduct, dataId, logger, maxTime=20):
             return butler.get(dataProduct, dataId)
         else:
             sleep(cadence)
-    logger.warn(f'Waited {maxTime}s for {dataProduct} for {dataId} to no avail')
+    logger.warning(f'Waited {maxTime}s for {dataProduct} for {dataId} to no avail')
     return None
 
 
@@ -244,13 +244,14 @@ class ImExaminerChannel():
     """Class for running the ImExam channel on RubinTV.
     """
 
-    def __init__(self, location):
+    def __init__(self, location, doRaise=False):
         self.dataProduct = 'quickLookExp'
         self.watcher = Watcher(location, self.dataProduct)
         self.uploader = Uploader()
         self.butler = makeDefaultLatissButler(location)
         self.log = logging.getLogger("imExaminerChannel")
         self.channel = 'summit_imexam'
+        self.doRaise = doRaise
 
     def _imExamine(self, exp, dataId, outputFilename):
         if os.path.exists(outputFilename):  # unnecessary now we're using tmpfile
@@ -279,7 +280,9 @@ class ImExaminerChannel():
             self.log.info('Upload complete')
 
         except Exception as e:
-            self.log.warning(f"Skipped imExam on {dataId} because {e}")
+            if self.doRaise:
+                raise RuntimeError(f"Error processing {dataId}") from e
+            self.log.warning(f"Skipped imExam on {dataId} because {repr(e)}")
             return None
 
     def run(self):
@@ -292,13 +295,14 @@ class SpecExaminerChannel():
     """Class for running the SpecExam channel on RubinTV.
     """
 
-    def __init__(self, location):
+    def __init__(self, location, doRaise=False):
         self.dataProduct = 'quickLookExp'
         self.watcher = Watcher(location, self.dataProduct)
         self.uploader = Uploader()
         self.butler = makeDefaultLatissButler(location)
         self.log = logging.getLogger("specExaminerChannel")
         self.channel = 'summit_specexam'
+        self.doRaise = doRaise
 
     def _specExamine(self, exp, dataId, outputFilename):
         if os.path.exists(outputFilename):  # unnecessary now we're using tmpfile?
@@ -331,7 +335,9 @@ class SpecExaminerChannel():
             self.log.info('Upload complete')
 
         except Exception as e:
-            self.log.warning(f"Skipped specExam on {dataId} because {e}")
+            if self.doRaise:
+                raise RuntimeError(f"Error processing {dataId}") from e
+            self.log.info(f"Skipped imExam on {dataId} because {repr(e)}")
             return None
 
     def run(self):
@@ -381,8 +387,8 @@ class MonitorChannel():
 
         except Exception as e:
             if self.doRaise:
-                raise RuntimeError from e
-            self.log.warning(f"Skipped monitor image for {dataId} because {e}")
+                raise RuntimeError(f"Error processing {dataId}") from e
+            self.log.warning(f"Skipped monitor image for {dataId} because {repr(e)}")
             return None
 
     def run(self):
@@ -427,8 +433,8 @@ class MountTorqueChannel():
 
         except Exception as e:
             if self.doRaise:
-                raise RuntimeError from e
-            self.log.warning(f"Skipped creating mount plots for {dataId} because {e}")
+                raise RuntimeError(f"Error processing {dataId}") from e
+            self.log.warning(f"Skipped creating mount plots for {dataId} because {repr(e)}")
 
     def run(self):
         """Run continuously, calling the callback method on the latest dataId.
