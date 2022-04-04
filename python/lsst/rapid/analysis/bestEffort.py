@@ -221,6 +221,8 @@ class BestEffortIsr():
                 self.butler.put(quickLookExp, self._datasetName, dataId)
                 self.log.info(f'Put {self._datasetName} for {dataId}')
             except ConflictingDefinitionError:
+                # TODO: DM-34302 fix this message so that it's less scary for
+                # users. Do this by having daemons know they're daemons.
                 self.log.warning('Skipped putting existing exp into collection! (ignore if there was a race)')
                 pass
 
