@@ -10,12 +10,15 @@ from lsst.pipe.tasks.quickFrameMeasurement import QuickFrameMeasurementTask, Qui
 from lsst.atmospec.processStar import getTargetCentroidFromWcs
 import lsst.afw.display as afwDisplay
 import lsst.afw.math as afwMath
-import lsst.daf.persistence as dafPersist
-import lsst.log
+import logging
 import lsst.meas.algorithms as measAlg
+from lsst.rapid.analysis.utils import dayObsIntToString
+from lsst.rapid.analysis.butlerUtils import (datasetExists, getExpRecordFromDataId, makeDefaultLatissButler,
+                                             getDayObs, getSeqNum, updateDataIdOrDataCord,
+                                             getLatissOnSkyDataIds)
 
 from lsst.atmospec.utils import airMassFromRawMetadata
-logger = lsst.log.Log.getLogger("lsst.rapid.analysis.animation")
+logger = logging.getLogger("lsst.rapid.analysis.animation")
 
 
 class Animator():
@@ -29,7 +32,7 @@ class Animator():
                  smoothImages=True,
                  plotObjectCentroids=True,
                  useQfmForCentroids=False,
-                 dataProcuctToPlot='calexp',
+                 dataProductToPlot='calexp',
                  ffMpegBinary='/home/mfl/bin/ffmpeg',
                  debug=False):
 
@@ -47,7 +50,7 @@ class Animator():
         self.smoothImages = smoothImages
         self.plotObjectCentroids = plotObjectCentroids
         self.useQfmForCentroids = useQfmForCentroids
-        self.dataProcuctToPlot = dataProcuctToPlot
+        self.dataProductToPlot = dataProductToPlot
         self.ffMpegBinary = ffMpegBinary
         self.debug = debug
 
@@ -70,8 +73,20 @@ class Animator():
 
     @staticmethod
     def _strDataId(dataId):
-        if 'dayObs' in dataId and 'seqNum' in dataId:  # nicely ordered if easy
-            return f"{dataId['dayObs']}-{dataId['seqNum']:05d}"
+        """Make a dataId into a string suitable for use as a filename.
+
+        Parameters
+        ----------
+        dataId : `dict`
+            The data id.
+
+        Returns
+        -------
+        strId : `str`
+            The data id as a string.
+        """
+        if (dayObs := getDayObs(dataId)) and (seqNum := getSeqNum(dataId)):   # nicely ordered if easy
+            return f"{dayObsIntToString(dayObs)}-{seqNum:05d}"
 
         # General case (and yeah, I should probably learn regex someday)
         dIdStr = str(dataId)
@@ -94,10 +109,10 @@ class Animator():
         dIdStr = self._strDataId(dataId)
 
         if includeNumber:  # for use in temp dir, so not full path
-            filename = self.toAnimateTemplate%(imNum, dIdStr, self.dataProcuctToPlot)
+            filename = self.toAnimateTemplate%(imNum, dIdStr, self.dataProductToPlot)
             return os.path.join(filename)
         else:
-            filename = self.basicTemplate%(dIdStr, self.dataProcuctToPlot)
+            filename = self.basicTemplate%(dIdStr, self.dataProductToPlot)
             return os.path.join(self.pngPath, filename)
 
     def exists(self, obj):
@@ -122,12 +137,12 @@ class Animator():
         dIdsWithPngs = [d for d in self.dataIdList if self.exists(self.dataIdToFilename(d))]
         dIdsWithoutPngs = [d for d in self.dataIdList if d not in dIdsWithPngs]
         if self.debug:
-            print(f"dIdsWithPngs = {dIdsWithPngs}")
-            print(f"dIdsWithoutPngs = {dIdsWithoutPngs}")
+            logger.info(f"dIdsWithPngs = {dIdsWithPngs}")
+            logger.info(f"dIdsWithoutPngs = {dIdsWithoutPngs}")
 
         # check the datasets exist for the pngs which need remaking
-        missingData = [d for d in dIdsWithoutPngs if not self.butler.datasetExists(self.dataProcuctToPlot,
-                                                                                   **d)]
+        missingData = [d for d in dIdsWithoutPngs if not datasetExists(butler, self.dataProductToPlot, d,
+                                                                       detector=0)]
 
         logger.info(f"Of the provided {len(self.dataIdList)} dataIds:")
         logger.info(f"{len(dIdsWithPngs)} existing pngs were found")
@@ -135,10 +150,10 @@ class Animator():
 
         if missingData:
             for dId in missingData:
-                msg = f"Failed to find {self.dataProcuctToPlot} for {dId}"
+                msg = f"Failed to find {self.dataProductToPlot} for {dId}"
                 logger.warn(msg)
                 self.dataIdList.remove(dId)
-            logger.info(f"Of the {len(dIdsWithoutPngs)} dataIds without pngs, {len(missingData)}" +
+            logger.info(f"Of the {len(dIdsWithoutPngs)} dataIds without pngs, {len(missingData)}"
                         " did not have the corresponding dataset existing")
 
         if self.remakePngs:
@@ -156,10 +171,14 @@ class Animator():
         if self.pngsToMakeDataIds:
             logger.info('Creating necessary pngs...')
             for i, dataId in enumerate(self.pngsToMakeDataIds):
-                print(f'Making png for file {i+1} of {len(self.pngsToMakeDataIds)}')
+                logger.info(f'Making png for file {i+1} of {len(self.pngsToMakeDataIds)}')
                 self.makePng(dataId, self.dataIdToFilename(dataId))
 
         # stage files in temp dir with numbers prepended to filenames
+        if not self.dataIdList:
+            logger.warn('No files to animate - nothing to do')
+            return
+
         logger.info('Copying files to ordered temp dir...')
         pngFilesOriginal = [self.dataIdToFilename(d) for d in self.dataIdList]
         for filename in pngFilesOriginal:  # these must all now exist, but let's assert just in case
@@ -193,13 +212,14 @@ class Animator():
         logger.info(f'Finished! Output at {self.outputFilename}')
 
     def _titleFromExp(self, exp, dataId):
-        items = ["OBJECT", "expTime", "FILTER", "imageType"]
-        obj, expTime, filterCompound, imageType = self.butler.queryMetadata('raw', items, **dataId)[0]
+        expRecord = getExpRecordFromDataId(butler, dataId)
+        obj = expRecord.target_name
+        expTime = expRecord.exposure_time
+        filterCompound = expRecord.physical_filter
         filt, grating = filterCompound.split('~')
-        rawMd = self.butler.get('raw_md', **dataId)
-        airmass = airMassFromRawMetadata(rawMd)
-
-        title = f"{dataId['dayObs']} - seqNum {dataId['seqNum']} - "
+        rawMd = self.butler.get('raw.metadata', dataId)
+        airmass = airMassFromRawMetadata(rawMd)  # XXX this could be improved a lot
+        title = f"{getDayObs(dataId)} - seqNum {getSeqNum(dataId)} - "
         title += f"Object: {obj} expTime: {expTime}s Filter: {filt} Grating: {grating} Airmass: {airmass:.3f}"
         return title
 
@@ -211,7 +231,7 @@ class Animator():
                 result = self.qfmTask.run(exp)
                 pixCoord = result.brightestObjCentroid
                 expId = exp.getInfo().getVisitInfo().getExposureId()
-                print(f'XXX expId {expId} centroid {pixCoord}')
+                logger.info(f'expId {expId} has centroid {pixCoord}')
             except Exception:
                 return None
         else:
@@ -223,17 +243,16 @@ class Animator():
             assert False, f"Almost overwrote {saveFilename} - how is this possible?"
 
         if self.debug:
-            print(f"Creating {saveFilename}")
+            logger.info(f"Creating {saveFilename}")
 
-        self.disp.erase()
         self.fig.clear()
 
         # must always keep exp unsmoothed for the centroiding via qfm
         try:
-            exp = self.butler.get(self.dataProcuctToPlot, **dataId)
+            exp = self.butler.get(self.dataProductToPlot, dataId)
         except Exception:
             # oh no, that should never happen, but it does! Let's just skip
-            print(f'Skipped {dataId}, because {self.dataProcuctToPlot} retrieval failed!')
+            logger.warn(f'Skipped {dataId}, because {self.dataProductToPlot} retrieval failed!')
             return
         toDisplay = exp
         if self.smoothImages:
@@ -264,6 +283,7 @@ class Animator():
         deltaV = -0.05
         plt.subplots_adjust(right=1+deltaH, left=0-deltaH, top=1+deltaV, bottom=0-deltaV)
         self.fig.savefig(saveFilename)
+        logger.info(f'Saved png for {dataId} to {saveFilename}')
 
     def pngsToMp4(self, indir, outfile, framerate, verbose=False):
         """Create the movie with ffmpeg, from files."""
@@ -310,124 +330,28 @@ class Animator():
         return newExp
 
 
+def animateDay(butler, dayObs, outputPath, dataProductToPlot='quickLookExp'):
+    outputFilename = f'{dayObs}.mp4'
+
+    onSkyIds = getLatissOnSkyDataIds(butler, startDate=dayObs, endDate=dayObs)
+    logger.info(f"Found {len(onSkyIds)} on sky ids for {dayObs}")
+
+    onSkyIds = [updateDataIdOrDataCord(dataId, detector=0) for dataId in onSkyIds]
+
+    animator = Animator(butler, onSkyIds, outputPath, outputFilename,
+                        dataProductToPlot=dataProductToPlot,
+                        remakePngs=False,
+                        debug=False,
+                        clobberVideoAndGif=True,
+                        plotObjectCentroids=True,
+                        useQfmForCentroids=True)
+    animator.run()
+
+
 if __name__ == '__main__':
-    dataProcuctToPlot = 'quickLookExp'
-    repoPath = '/project/shared/auxTel/rerun/quickLook'
+    # TODO: DM-34239 Move this to be a butler-driven test
     outputPath = '/home/mfl/animatorOutput/main/'
-    outputFilename = 'MarchToJune2021.mp4'
+    butler = makeDefaultLatissButler('NCSA')
 
-    butler = dafPersist.Butler(repoPath)
-
-    skipTypes = ['BIAS', 'DARK', 'FLAT']
-
-    def isOnSky(dataId):
-        if dataId['imageType'] not in skipTypes:
-            return True
-        return False
-
-    # def isDispersed(dataId):
-    #     if dataId['imageType'] not in skipTypes:
-    #         return True
-    #     return False
-
-    if False:
-        days = ['2020-02-17', '2020-02-18', '2020-02-19', '2020-02-20', '2020-02-21',
-                '2020-03-12', '2020-03-13', '2020-03-14', '2020-03-15', '2020-03-16']
-        dataIds = []
-        for dayObs in days:
-            data = butler.queryMetadata('raw', ['seqNum', 'filter', 'imageType'], dayObs=dayObs)
-            for (seqNum, filterCompound, imageType) in data:
-                filt = filterCompound.split("~")[0]
-                grating = filterCompound.split("~")[1]
-                dataIds.append({'dayObs': dayObs,
-                                'seqNum': seqNum,
-                                'filter': filt,
-                                'grating': grating,
-                                'imageType': imageType})
-
-        scienceIds = [x for x in filter(isOnSky, dataIds)]
-
-        print(f'{len(dataIds)} dataIds total')
-        print(f'{len(scienceIds)} science ids')
-
-        fitted = []
-        for dataId in scienceIds:
-            if butler.datasetExists(dataProcuctToPlot, dayObs=dataId['dayObs'], seqNum=dataId['seqNum']):
-                fitted.append({'dayObs': dataId['dayObs'], 'seqNum': dataId['seqNum']})
-        print(f'{len(fitted)} with {dataProcuctToPlot}')
-
-        animator = Animator(butler, fitted, outputPath, outputFilename,
-                            dataProcuctToPlot=dataProcuctToPlot,
-                            remakePngs=False,
-                            debug=False,
-                            clobberVideoAndGif=True,
-                            plotObjectCentroids=False)
-        animator.run()
-    elif False:
-        # skipTypes = []
-        dayObs = '2021-02-17'
-        seqNums = range(100, 475+1)
-
-        toUse = []
-
-        for seqNum in seqNums:
-            imageType = butler.queryMetadata('raw', 'imageType', dayObs=dayObs, seqNum=seqNum)[0]
-            if imageType in skipTypes:
-                print(f"Skipping {seqNum} because it is a {imageType}")
-                continue
-            if butler.datasetExists(dataProcuctToPlot, dayObs=dayObs, seqNum=seqNum):
-                toUse.append({'dayObs': dayObs, 'seqNum': seqNum})
-
-        print(f'{len(toUse)} with {dataProcuctToPlot}')
-
-        animator = Animator(butler, toUse, outputPath, outputFilename,
-                            dataProcuctToPlot=dataProcuctToPlot,
-                            remakePngs=False,
-                            debug=False,
-                            clobberVideoAndGif=True,
-                            plotObjectCentroids=True,
-                            useQfmForCentroids=True)
-        animator.run()
-
-    else:
-        from myTools import getLatissOnSkyDataIds
-        onSkyIds = getLatissOnSkyDataIds(butler)
-
-        # currently, an afw read bug means these fail to butler.get()
-        onSkyIds.remove({'dayObs': '2021-02-11', 'seqNum': 1})
-        onSkyIds.remove({'dayObs': '2021-02-11', 'seqNum': 2})
-        onSkyIds.remove({'dayObs': '2021-02-11', 'seqNum': 3})
-
-        days = ["2021-03-03",
-                "2021-03-04",
-                "2021-03-05",
-                "2021-03-08",
-                "2021-03-09",
-                "2021-03-10",
-                "2021-03-11",
-                "2021-03-18",
-                "2021-03-22",
-                "2021-03-23",
-                "2021-04-08",
-                "2021-04-14",
-                "2021-05-21",
-                "2021-05-24",
-                "2021-05-25",
-                "2021-06-07",
-                "2021-06-08",
-                "2021-06-09",
-                "2021-06-10"]
-
-        toUse = []
-        for did in onSkyIds:
-            if did['dayObs'] in days:
-                toUse.append(did)
-
-        animator = Animator(butler, toUse, outputPath, outputFilename,
-                            dataProcuctToPlot=dataProcuctToPlot,
-                            remakePngs=False,
-                            debug=False,
-                            clobberVideoAndGif=True,
-                            plotObjectCentroids=True,
-                            useQfmForCentroids=True)
-        animator.run()
+    day = 20211104
+    animateDay(butler, day, outputPath)

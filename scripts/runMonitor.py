@@ -24,6 +24,6 @@ from lsst.rapid.analysis.utils import checkRubinTvExternalPackages
 
 checkRubinTvExternalPackages()
 print('Running monitor...')
-repoDir = '/project/shared/auxTel/rerun/quickLook'
-monitor = MonitorChannel(repoDir)
+location = 'summit'
+monitor = MonitorChannel(location, doRaise=False)
 monitor.run()

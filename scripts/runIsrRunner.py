@@ -22,6 +22,6 @@
 from lsst.rapid.analysis.rubinTv import IsrRunner
 
 print('Running isr runner...')
-repoDir = '/project/shared/auxTel/'
-isrRunner = IsrRunner(repoDir)
+location = 'summit'
+isrRunner = IsrRunner(location)
 isrRunner.run()

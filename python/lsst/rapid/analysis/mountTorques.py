@@ -24,13 +24,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.time import Time
 import asyncio
+import lsst.rapid.analysis.butlerUtils as bu
+from .utils import dayObsIntToString
+from astro_metadata_translator import ObservationInfo
 
 try:
     from lsst_efd_client import merge_packed_time_series as mpts
 except ImportError:
     pass
 
-GOOD_IMAGE_TYPES = ['OBJECT', 'SKYEXP', 'ENGTEST']
+GOOD_IMAGE_TYPES = ['OBJECT', 'SKYEXP', 'ENGTEST', 'SCIENCE']
 
 
 def _getEfdData(client, dataSeries, startTime, endTime):
@@ -39,34 +42,26 @@ def _getEfdData(client, dataSeries, startTime, endTime):
     This exists so that the top level functions don't all have to be async def.
     """
     loop = asyncio.get_event_loop()
-    return loop.run_until_complete(client.select_time_series(dataSeries, ['*'], startTime, endTime))
+    return loop.run_until_complete(client.select_time_series(dataSeries, ['*'], startTime.utc, endTime.utc))
 
 
-def plotMountTracking(dataId, butler, client, figure, saveFilename, butlerGeneration, logger):
+def plotMountTracking(dataId, butler, client, figure, saveFilename, logger):
     """Queries EFD for given exposure and checks if there were tracking errors.
 
     Parameters
     ----------
     dataId : `dict`
         The dataId for quich to plot the mount torques.
-
-    butler : `lsst.daf.persistence.Butler` or `lsst.daf.butler.Butler`
+    butler : `lsst.daf.butler.Butler`
         The butler to use to retrieve the image metadata.
-
     client : `lsst_efd_client.Client`
         The EFD client to retrieve the mount torques.
-
     figure : `matplotlib.Figure`
         A matplotlib figure to re-use. Necessary to pass this in to prevent an
         ever-growing figure count and the ensuing memory leak.
-
     saveFilename : `str`
         Full path and filename to save the plot to.
-
-    butlerGeneration : `int`
-        The butler generation (2 or 3).
-
-    logger : `lsst.log.Log`
+    logger : `logging.Logger`
         The logger.
 
     Returns
@@ -80,23 +75,25 @@ def plotMountTracking(dataId, butler, client, figure, saveFilename, butlerGenera
 
     start = time.time()
 
-    if butlerGeneration == 3:
-        mData = butler.get('raw.metadata', **dataId)
-        dataIdString = str(dataId['expId'])
-    else:
-        mData = butler.get('raw_md', **dataId)
-        dataIdString = f"{dataId['dayObs']}-{dataId['seqNum']}"
+    expRecord = bu.getExpRecordFromDataId(butler, dataId)
+    dayString = dayObsIntToString(expRecord.day_obs)
+    seqNumString = str(expRecord.seq_num)
+    dataIdString = f"{dayString} - seqNum {seqNumString}"
 
-    imgType = mData['IMGTYPE']
-    tStart = mData['DATE-BEG']
-    tEnd = mData['DATE-END']
-    elevation = mData['ELSTART']
-    azimuth = mData['AZSTART']
-    exptime = mData['EXPTIME']
+    imgType = expRecord.observation_type.upper()
+    tStart = expRecord.timespan.begin.tai.to_value("isot")
+    tEnd = expRecord.timespan.end.tai.to_value("isot")
+    elevation = 90 - expRecord.zenith_angle
+    exptime = expRecord.exposure_time
+
+    # TODO: DM-33859 remove this once it can be got from the expRecord
+    md = butler.get('raw.metadata', dataId, detector=0)
+    obsInfo = ObservationInfo(md)
+    azimuth = obsInfo.altaz_begin.az.value
     logger.debug(f"dataId={dataIdString}, imgType={imgType}, Times={tStart}, {tEnd}")
 
     if imgType not in GOOD_IMAGE_TYPES:
-        logger.info(f'Skipping image type {imgType}')
+        logger.info(f'Skipping image type {imgType} for {dataIdString}')
         return False
     if exptime < 1.99:
         logger.info('Skipping sub 2s expsoure')
@@ -122,13 +119,13 @@ def plotMountTracking(dataId, butler, client, figure, saveFilename, butlerGenera
     torques = _getEfdData(client, "lsst.sal.ATMCS.measuredTorque", t_start, t_end)
     logger.debug("Length of time series", len(mount_position))
 
-    az = mpts(mount_position, 'azimuthCalculatedAngle', stride=1, internal_time_scale="utc")
-    el = mpts(mount_position, 'elevationCalculatedAngle', stride=1, internal_time_scale="utc")
-    rot = mpts(nasmyth_position, 'nasmyth2CalculatedAngle', stride=1, internal_time_scale="utc")
-    az_torque_1 = mpts(torques, 'azimuthMotor1Torque', stride=1, internal_time_scale="utc")
-    az_torque_2 = mpts(torques, 'azimuthMotor2Torque', stride=1, internal_time_scale="utc")
-    el_torque = mpts(torques, 'elevationMotorTorque', stride=1, internal_time_scale="utc")
-    rot_torque = mpts(torques, 'nasmyth2MotorTorque', stride=1, internal_time_scale="utc")
+    az = mpts(mount_position, 'azimuthCalculatedAngle', stride=1)
+    el = mpts(mount_position, 'elevationCalculatedAngle', stride=1)
+    rot = mpts(nasmyth_position, 'nasmyth2CalculatedAngle', stride=1)
+    az_torque_1 = mpts(torques, 'azimuthMotor1Torque', stride=1)
+    az_torque_2 = mpts(torques, 'azimuthMotor2Torque', stride=1)
+    el_torque = mpts(torques, 'elevationMotorTorque', stride=1)
+    rot_torque = mpts(torques, 'nasmyth2MotorTorque', stride=1)
 
     end = time.time()
     elapsed = end-start

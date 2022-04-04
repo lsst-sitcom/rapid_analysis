@@ -24,6 +24,6 @@ from lsst.rapid.analysis.utils import checkRubinTvExternalPackages
 
 checkRubinTvExternalPackages()
 print('Running spec examiner...')
-repoDir = '/project/shared/auxTel/rerun/quickLook'
-specExaminer = SpecExaminerChannel(repoDir)
+location = 'summit'
+specExaminer = SpecExaminerChannel(location)
 specExaminer.run()

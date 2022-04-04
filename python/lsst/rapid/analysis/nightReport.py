@@ -28,9 +28,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
 
-import lsst.daf.persistence as dafPersist
 from lsst.obs.lsst.translators.lsst import FILTER_DELIMITER
 from astro_metadata_translator import ObservationInfo
+from lsst.rapid.analysis.butlerUtils import makeDefaultLatissButler, getSeqNumsForDayObs, sanitize_day_obs
 
 __all__ = ['NightReporter', 'saveReport', 'loadReport']
 
@@ -48,6 +48,8 @@ KEY_MAPPER = {'OBJECT': 'object',
               'IMGTYPE': 'observation_type',
               'MJD-BEG': 'datetime_begin',
               }
+
+# TODO: DM-34250 rewrite (and document) this whole file.
 
 
 def getValue(key, header, stripUnits=True):
@@ -73,8 +75,8 @@ def getValue(key, header, stripUnits=True):
 
 # wanted these to be on the class but it doesn't pickle itself nicely
 def saveReport(reporter, savePath):
-    # the reporter._butler seems to pickle OK but perhaps it should be
-    # removed for saving (and re-instantiated from _repoDir on load?)
+    # the reporter.butler seems to pickle OK but perhaps it should be
+    # removed for saving?
     filename = os.path.join(savePath, PICKLE_TEMPLATE % reporter.dayObs)
     with open(filename, "wb") as dumpFile:
         pickle.dump(reporter, dumpFile)
@@ -98,11 +100,13 @@ class ColorAndMarker:
 
 class NightReporter():
 
-    def __init__(self, repoDir, dayObs, deferLoadingData=False):
+    def __init__(self, location, dayObs, deferLoadingData=False):
         self._supressAstroMetadataTranslatorWarnings()  # call early
 
-        self._butler = dafPersist.Butler(repoDir)
-        self._repoDir = repoDir
+        self.butler = makeDefaultLatissButler(location)
+        if isinstance(dayObs, str):
+            dayObs = sanitize_day_obs(dayObs)
+            print('Converted string-format dayObs to integer for Gen3')
         self.dayObs = dayObs
         self.data = {}
         self.stars = None
@@ -135,11 +139,12 @@ class NightReporter():
 
         Don't call directly as the rebuild() function zeros out data for when
         it's a new dayObs."""
-        seqNums = sorted(self._butler.queryMetadata('raw', 'seqNum', dayObs=dayObs))
+        seqNums = getSeqNumsForDayObs(self.butler, dayObs)
         for seqNum in sorted(seqNums):
             if seqNum in self.data.keys():
                 continue
-            md = self._butler.get('raw_md', dayObs=dayObs, seqNum=seqNum)
+            dataId = {'day_obs': dayObs, 'seq_num': seqNum, 'detector': 0}
+            md = self.butler.get('raw.metadata', dataId)
             self.data[seqNum] = md.toDict()
             self.data[seqNum]['ObservationInfo'] = ObservationInfo(md)
         print(f"Loaded data for seqNums {sorted(seqNums)[0]} to {sorted(seqNums)[-1]}")
@@ -354,9 +359,10 @@ class NightReporter():
 
 
 if __name__ == '__main__':
-    if False:
-        repodir = '/project/shared/auxTel/'
-        nightReporter = NightReporter(repodir, "2020-02-20")
+    # TODO: DM-34239 Move this to be a butler-driven test
+    if True:
+        location = 'NCSA'
+        nightReporter = NightReporter(location, 20200220)
         stars = nightReporter.getUniqueValuesForKey('OBJECT')
         colorMap = nightReporter.makeStarColorAndMarkerMap(stars)
         nightReporter.makePolarPlotForObjects(stars, withLines=False)

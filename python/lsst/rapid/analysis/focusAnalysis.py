@@ -19,8 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import os
-import lsst.daf.persistence as dafPersist
 import lsst.geom as geom
 
 import matplotlib.pyplot as plt
@@ -42,7 +40,8 @@ from lsst.rapid.analysis.utils import FWHMTOSIGMA, SIGMATOFWHM
 from lsst.atmospec.utils import isDispersedExp
 
 from lsst.pipe.tasks.quickFrameMeasurement import QuickFrameMeasurementTask, QuickFrameMeasurementTaskConfig
-
+from lsst.rapid.analysis.butlerUtils import (makeDefaultLatissButler, getExpRecordFromDataId,
+                                             LATISS_REPO_LOCATION_MAP)
 
 __all__ = ["SpectralFocusAnalyzer", "NonSpectralFocusAnalyzer"]
 
@@ -55,10 +54,28 @@ class FitResult:
 
 
 class SpectralFocusAnalyzer():
+    """Analyze a focus sweep taken for spectral data.
 
-    def __init__(self, repoDir, **kwargs):
+    Take slices across the spectrum for each image, fitting a Gaussian to each
+    slice, and perform a parabolic fit to these widths. The number of slices
+    and their distances can be customized by calling setSpectrumBoxOffsets().
 
-        self._butler = dafPersist.Butler(os.path.join(repoDir, "rerun/quickLook/"))
+    Nominal usage is something like:
+
+    %matplotlib inline
+    dayObs = 20210101
+    seqNums = [100, 101, 102, 103, 104]
+    focusAnalyzer = SpectralFocusAnalyzer()
+    focusAnalyzer.setSpectrumBoxOffsets([500, 750, 1000, 1250])
+    focusAnalyzer.getFocusData(dayObs, seqNums, doDisplay=True)
+    focusAnalyzer.fitDataAndPlot()
+
+    focusAnalyzer.run() can be used instead of the last two lines separately.
+    """
+
+    def __init__(self, location, **kwargs):
+        self.butler = makeDefaultLatissButler(location)
+        repoDir = LATISS_REPO_LOCATION_MAP[location]
         self._bestEffort = BestEffortIsr(repoDir, **kwargs)
         qfmTaskConfig = QuickFrameMeasurementTaskConfig()
         self._quickMeasure = QuickFrameMeasurementTask(config=qfmTaskConfig)
@@ -69,10 +86,26 @@ class SpectralFocusAnalyzer():
         self._setColors(len(self._spectrumBoxOffsets))
 
     def setSpectrumBoxOffsets(self, offsets):
+        """Set the current spectrum slice offsets.
+
+        Parameters
+        ----------
+        offsets : `list` of `float`
+            The distance at which to slice the spectrum, measured in pixels
+            from the main star's location.
+        """
         self._spectrumBoxOffsets = offsets
         self._setColors(len(offsets))
 
     def getSpectrumBoxOffsets(self):
+        """Get the current spectrum slice offsets.
+
+        Returns
+        -------
+        offsets : `list` of `float`
+            The distance at which to slice the spectrum, measured in pixels
+            from the main star's location.
+        """
         return self._spectrumBoxOffsets
 
     def _setColors(self, nPoints):
@@ -106,26 +139,78 @@ class SpectralFocusAnalyzer():
         amp, mean, sigma = pars
         return amp*np.exp(-(x-mean)**2/(2.*sigma**2))
 
-    def run(self, dayObs, seqNums, doDisplay=False, hideFit=False):
+    def run(self, dayObs, seqNums, doDisplay=False, hideFit=False, hexapodZeroPoint=0):
+        """Perform a focus sweep analysis for spectral data.
+
+        For each seqNum for the specified dayObs, take a slice through the
+        spectrum at y-offsets as specified by the offsets
+        (see get/setSpectrumBoxOffsets() for setting these) and fit a Gaussian
+        to the spectrum slice to measure its width.
+
+        For each offset distance, fit a parabola to the fitted spectral widths
+        and return the hexapod position at which the best focus was achieved
+        for each.
+
+        Parameters
+        ----------
+        dayObs : `int`
+            The dayObs to use.
+        seqNums : `list` of `int`
+            The seqNums for the focus sweep to analyze.
+        doDisplay : `bool`
+            Show the plots? Designed to be used in a notebook with
+            %matplotlib inline.
+        hideFit : `bool`, optional
+            Hide the fit and just return the result?
+        hexapodZeroPoint : `float`, optional
+            Add a zeropoint offset to the hexapod axis?
+
+        Returns
+        -------
+        bestFits : `list` of `float`
+            A list of the best fit focuses, one for each spectral slice.
+        """
         self.getFocusData(dayObs, seqNums, doDisplay=doDisplay)
-        bestFits = self.fitDataAndPlot(hideFit=hideFit)
+        bestFits = self.fitDataAndPlot(hideFit=hideFit, hexapodZeroPoint=hexapodZeroPoint)
         return bestFits
 
     def getFocusData(self, dayObs, seqNums, doDisplay=False):
+        """Perform a focus sweep analysis for spectral data.
+
+        For each seqNum for the specified dayObs, take a slice through the
+        spectrum at y-offsets as specified by the offsets
+        (see get/setSpectrumBoxOffsets() for setting these) and fit a Gaussian
+        to the spectrum slice to measure its width.
+
+        Parameters
+        ----------
+        dayObs : `int`
+            The dayObs to use.
+        seqNums : `list` of `int`
+            The seqNums for the focus sweep to analyze.
+        doDisplay : `bool`
+            Show the plots? Designed to be used in a notebook with
+            %matplotlib inline.
+
+        Notes
+        -----
+        Performs the focus analysis per-image, holding the data in the class.
+        Call fitDataAndPlot() after running this to perform the parabolic fit
+        to the focus data itself.
+        """
         fitData = {}
         filters = set()
         objects = set()
 
         for seqNum in seqNums:
             fitData[seqNum] = {}
-            if self._butler.datasetExists('quickLookExp', **{'dayObs': dayObs, 'seqNum': seqNum}):
-                exp = self._butler.get('quickLookExp', **{'dayObs': dayObs, 'seqNum': seqNum})
-            else:
-                exp = self._bestEffort.getExposure({'dayObs': dayObs, 'seqNum': seqNum})
+            dataId = {'day_obs': dayObs, 'seq_num': seqNum, 'detector': 0}
+            exp = self._bestEffort.getExposure(dataId)
 
             # sanity checking
             filt = exp.getFilter().getName()
-            obj = self._butler.queryMetadata('raw', 'object', dayObs=dayObs, seqNum=seqNum)[0]
+            expRecord = getExpRecordFromDataId(self.butler, dataId)
+            obj = expRecord.target_name
             objects.add(obj)
             filters.add(filt)
             assert isDispersedExp(exp), f"Image is not dispersed! (filter = {filt})"
@@ -190,6 +275,24 @@ class SpectralFocusAnalyzer():
         return
 
     def fitDataAndPlot(self, hideFit=False, hexapodZeroPoint=0):
+        """Fit a parabola to each series of slices and return the best focus.
+
+        For each offset distance, fit a parabola to the fitted spectral widths
+        and return the hexapod position at which the best focus was achieved
+        for each.
+
+        Parameters
+        ----------
+        hideFit : `bool`, optional
+            Hide the fit and just return the result?
+        hexapodZeroPoint : `float`, optional
+            Add a zeropoint offset to the hexapod axis?
+
+        Returns
+        -------
+        bestFits : `list` of `float`
+            A list of the best fit focuses, one for each spectral slice.
+        """
         data = self.fitData
         filt = self.filter
         obj = self.object
@@ -263,9 +366,27 @@ class SpectralFocusAnalyzer():
 
 
 class NonSpectralFocusAnalyzer():
+    """Analyze a focus sweep taken for direct imaging data.
 
-    def __init__(self, repoDir, **kwargs):
-        self._butler = dafPersist.Butler(repoDir)
+    For each image, measure the FWHM of the main star and the 50/80/90%
+    encircled energy radii, and fit a parabola to get the position of best
+    focus.
+
+    Nominal usage is something like:
+
+    %matplotlib inline
+    dayObs = 20210101
+    seqNums = [100, 101, 102, 103, 104]
+    focusAnalyzer = NonSpectralFocusAnalyzer()
+    focusAnalyzer.getFocusData(dayObs, seqNums, doDisplay=True)
+    focusAnalyzer.fitDataAndPlot()
+
+    focusAnalyzer.run() can be used instead of the last two lines separately.
+    """
+
+    def __init__(self, location, **kwargs):
+        self.butler = makeDefaultLatissButler(location)
+        repoDir = LATISS_REPO_LOCATION_MAP[location]
         self._bestEffort = BestEffortIsr(repoDir, **kwargs)
 
     @staticmethod
@@ -277,14 +398,74 @@ class NonSpectralFocusAnalyzer():
         amp, mean, sigma = pars
         return amp*np.exp(-(x-mean)**2/(2.*sigma**2))
 
-    def run(self, dayObs, seqNums, *, manualCentroid=None, doDisplay=False, hideFit=False, doForceCoM=False):
-        self.getFocusData(dayObs, seqNums, manualCentroid=manualCentroid, doDisplay=doDisplay,
-                          doForceCoM=doForceCoM)
-        bestFit = self.fitDataAndPlot(hideFit=hideFit)
+    def run(self, dayObs, seqNums, *, manualCentroid=None, doCheckDispersed=True, doDisplay=False,
+            doForceCoM=False):
+        """Perform a focus sweep analysis for direct imaging data.
+
+        For each seqNum for the specified dayObs, run the image through imExam
+        and collect the widths from the Gaussian fit and the 50/80/90%
+        encircled energy metrics, saving the data in the class for fitting.
+
+        For each of the [Gaussian fit, 50%, 80%, 90% encircled energy] metrics,
+        fit a parabola and return the focus value at which the minimum is
+        found.
+
+        Parameters
+        ----------
+        dayObs : `int`
+            The dayObs to use.
+        seqNums : `list` of `int`
+            The seqNums for the focus sweep to analyze.
+        manualCentroid : `tuple` of `float`, optional
+            Use this as the centroid position instead of fitting each image.
+        doCheckDispersed : `bool`, optional
+            Check if any of the seqNums actually refer to dispersed images?
+        doDisplay : `bool`, optional
+            Show the plots? Designed to be used in a notebook with
+            %matplotlib inline.
+        doForceCoM : `bool`, optional
+            Force using centre-of-mass for centroiding?
+
+        Returns
+        -------
+        result : `dict` of `float`
+            A dict of the fit minima keyed by the metric it is the minimum for.
+        """
+        self.getFocusData(dayObs, seqNums, manualCentroid=manualCentroid, doCheckDispersed=doCheckDispersed,
+                          doDisplay=doDisplay, doForceCoM=doForceCoM)
+        bestFit = self.fitDataAndPlot()
         return bestFit
 
     def getFocusData(self, dayObs, seqNums, *, manualCentroid=None, doCheckDispersed=True,
                      doDisplay=False, doForceCoM=False):
+        """Perform a focus sweep analysis for direct imaging data.
+
+        For each seqNum for the specified dayObs, run the image through imExam
+        and collect the widths from the Gaussian fit and the 50/80/90%
+        encircled energy metrics, saving the data in the class for fitting.
+
+        Parameters
+        ----------
+        dayObs : `int`
+            The dayObs to use.
+        seqNums : `list` of `int`
+            The seqNums for the focus sweep to analyze.
+        manualCentroid : `tuple` of `float`, optional
+            Use this as the centroid position instead of fitting each image.
+        doCheckDispersed : `bool`, optional
+            Check if any of the seqNums actually refer to dispersed images?
+        doDisplay : `bool`, optional
+            Show the plots? Designed to be used in a notebook with
+            %matplotlib inline.
+        doForceCoM : `bool`, optional
+            Force using centre-of-mass for centroiding?
+
+        Notes
+        -----
+        Performs the focus analysis per-image, holding the data in the class.
+        Call fitDataAndPlot() after running this to perform the parabolic fit
+        to the focus data itself.
+        """
         fitData = {}
         filters = set()
         objects = set()
@@ -294,17 +475,13 @@ class NonSpectralFocusAnalyzer():
 
         for seqNum in seqNums:
             fitData[seqNum] = {}
-            butler = self._butler
-
-            if butler.datasetExists('quickLookExp', {'dayObs': dayObs, 'seqNum': seqNum}):
-                exp = butler.get('quickLookExp', {'dayObs': dayObs, 'seqNum': seqNum})
-            else:
-                print(f"quickLookExp not found for {seqNum}, reproducing...")
-                exp = self._bestEffort.getExposure({'dayObs': dayObs, 'seqNum': seqNum})
+            dataId = {'day_obs': dayObs, 'seq_num': seqNum, 'detector': 0}
+            exp = self._bestEffort.getExposure(dataId)
 
             # sanity/consistency checking
             filt = exp.getFilterLabel().physicalLabel
-            obj = butler.queryMetadata('raw', 'object', dayObs=dayObs, seqNum=seqNum)[0]
+            expRecord = getExpRecordFromDataId(self.butler, dataId)
+            obj = expRecord.target_name
             objects.add(obj)
             filters.add(filt)
             if doCheckDispersed:
@@ -343,8 +520,18 @@ class NonSpectralFocusAnalyzer():
 
         return
 
-    def fitDataAndPlot(self, hideFit=False):
+    def fitDataAndPlot(self):
+        """Fit a parabola to each width metric, returning their best focuses.
 
+        For each of the [Gaussian fit, 50%, 80%, 90% encircled energy] metrics,
+        fit a parabola and return the focus value at which the minimum is
+        found.
+
+        Returns
+        -------
+        result : `dict` of `float`
+            A dict of the fit minima keyed by the metric it is the minimum for.
+        """
         fitData = self.fitData
 
         labelFontSize = 14
@@ -406,12 +593,13 @@ class NonSpectralFocusAnalyzer():
 
         return results
 
-# if __name__ == '__main__':
-#     repoDir = '/project/shared/auxTel/'
-#     analyzer = SpectralFocusAnalyzer(repoDir)
-#     # dataId = {'dayObs': '2020-02-20', 'seqNum': 485}  # direct image
-#     dataId = {'dayObs': '2020-03-12'}
-#     seqNums = [121, 122]
-#     data, filt, obj = analyzer.getFocusData(dataId['dayObs'],
-#                                             seqNums, doDisplay=True)
-#     analyzer.fitDataAndPlot(data, filt, obj)
+
+if __name__ == '__main__':
+    # TODO: DM-34239 Move this to be a butler-driven test
+    location = 'NCSA'
+    analyzer = SpectralFocusAnalyzer(location)
+    # dataId = {'dayObs': '2020-02-20', 'seqNum': 485}  # direct image
+    dataId = {'day_obs': 20200312}
+    seqNums = [121, 122]
+    analyzer.getFocusData(dataId['day_obs'], seqNums, doDisplay=True)
+    analyzer.fitDataAndPlot()
