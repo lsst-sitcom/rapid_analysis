@@ -48,17 +48,13 @@ class BestEffortIsr():
     ----------
     repoDir : `str`
         The repo root. Will be removed after DM-33849.
-
     extraCollections : `list` of `str`, optional
         Extra collections to add to the butler init. Collections are prepended.
-
     defaultExtraIsrOptions : `dict`, optional
         A dict of extra isr config options to apply. Each key should be an
     attribute of an isrTaskConfigClass.
-
     doRepairCosmics : `bool`, optional
         Repair cosmic ray hits?
-
     doWrite : `bool`, optional
         Write the outputs to the quickLook rerun/collection?
     """
@@ -95,7 +91,6 @@ class BestEffortIsr():
         ----------
         config : `lsst.pex.config.Config`
             The config class to update.
-
         overrides : `dict`
             The override options as a dict.
 
@@ -152,11 +147,9 @@ class BestEffortIsr():
         ----------
         expIdOrDataId : `dict`
             The dataId
-
         extraIsrOptions : `dict`, optional
             extraIsrOptions is a dict of extra isr options applied to this
             image only.
-
         skipCosmics : `bool`, optional  # XXX THIS CURRENTLY DOESN'T WORK!
             Skip doing cosmic ray repair for this image?
 

@@ -52,20 +52,15 @@ def plotMountTracking(dataId, butler, client, figure, saveFilename, logger):
     ----------
     dataId : `dict`
         The dataId for quich to plot the mount torques.
-
     butler : `lsst.daf.butler.Butler`
         The butler to use to retrieve the image metadata.
-
     client : `lsst_efd_client.Client`
         The EFD client to retrieve the mount torques.
-
     figure : `matplotlib.Figure`
         A matplotlib figure to re-use. Necessary to pass this in to prevent an
         ever-growing figure count and the ensuing memory leak.
-
     saveFilename : `str`
         Full path and filename to save the plot to.
-
     logger : `logging.Logger`
         The logger.
 

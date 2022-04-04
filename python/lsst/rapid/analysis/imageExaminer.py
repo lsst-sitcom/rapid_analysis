@@ -65,23 +65,18 @@ class ImageExaminer():
     ----------
     exp : `lsst.afw.image.Exposure`
         The input exposure to analyze.
-
     doTweakCentroid : `bool`, optional
         Tweak the centroid (either the one supplied, or the one found by QFM if
         none supplied)? See ``tweakCentroid`` for full details of the
         behavior.
-
     doForceCoM : `bool`, optional
         Use the centre of mass inside the cutout box as the star's centroid?
-
     savePlots : `str`, optional
         Filename to save the plot to. Image not saved if falsey.
-
     centroid : `tuple` of `float`, optional
         Centroid of the star to treat as the main source. If ``None``, use
         ``lsst.pipe.tasks.quickFrameMeasurement.QuickFrameMeasurementTask`` to
         find the main source in the image.
-
     boxHalfSize : `int`, optional
         The half-size of the cutout to use for the star's PSF and the radius
         to use for the radial plots.
@@ -244,7 +239,6 @@ class ImageExaminer():
         ----------
         centroid : `tuple` of `float`
             The centroid.
-
         chipBbox : `lsst.geom.Box`
             The detector's bounding box.
 
@@ -459,7 +453,6 @@ class ImageExaminer():
         ax : `maplotlib.axes`, optional
             If ``None`` a new figure is created. Supply axes if including this
             as a subplot.
-
         nContours : `int`, optional
             The number of contours to use.
         """
@@ -490,7 +483,6 @@ class ImageExaminer():
         ax : `maplotlib.axes`, optional
             If ``None`` a new figure is created. Supply axes if including this
             as a subplot.
-
         useColor : `bool`, optional
             Plot at as a surface if ``True``, else plot as a wireframe.
         """
@@ -520,7 +512,6 @@ class ImageExaminer():
         ax : `maplotlib.axes`, optional
             If ``None`` a new figure is created. Supply axes if including this
             as a subplot.
-
         logScale : `bool`, optional
             Use a log scale?
         """
@@ -583,7 +574,6 @@ class ImageExaminer():
         ax : `maplotlib.axes`, optional
             If ``None`` a new figure is created. Supply axes if including this
             as a subplot.
-
         logScale : `bool`, optional
             Use a log scale?
         """
@@ -621,7 +611,6 @@ class ImageExaminer():
         ----------
         ax : `maplotlib.axes`
             Axes to use.
-
         lines : `list` of `str`
             The data to include in the text box
         """
@@ -721,7 +710,6 @@ class ImageExaminer():
         imStats : `lsst.pipe.base.Struct`
             A container with attributes containing measurements and statistics
             for the image.
-
         mappingDict : `dict` of `str`
             A mapping from attribute name to name for rendereding as text.
 

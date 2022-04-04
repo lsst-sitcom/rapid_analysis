@@ -155,17 +155,13 @@ class SpectralFocusAnalyzer():
         ----------
         dayObs : `int`
             The dayObs to use.
-
         seqNums : `list` of `int`
             The seqNums for the focus sweep to analyze.
-
         doDisplay : `bool`
             Show the plots? Designed to be used in a notebook with
             %matplotlib inline.
-
         hideFit : `bool`, optional
             Hide the fit and just return the result?
-
         hexapodZeroPoint : `float`, optional
             Add a zeropoint offset to the hexapod axis?
 
@@ -190,10 +186,8 @@ class SpectralFocusAnalyzer():
         ----------
         dayObs : `int`
             The dayObs to use.
-
         seqNums : `list` of `int`
             The seqNums for the focus sweep to analyze.
-
         doDisplay : `bool`
             Show the plots? Designed to be used in a notebook with
             %matplotlib inline.
@@ -291,7 +285,6 @@ class SpectralFocusAnalyzer():
         ----------
         hideFit : `bool`, optional
             Hide the fit and just return the result?
-
         hexapodZeroPoint : `float`, optional
             Add a zeropoint offset to the hexapod axis?
 
@@ -421,20 +414,15 @@ class NonSpectralFocusAnalyzer():
         ----------
         dayObs : `int`
             The dayObs to use.
-
         seqNums : `list` of `int`
             The seqNums for the focus sweep to analyze.
-
         manualCentroid : `tuple` of `float`, optional
             Use this as the centroid position instead of fitting each image.
-
         doCheckDispersed : `bool`, optional
             Check if any of the seqNums actually refer to dispersed images?
-
         doDisplay : `bool`, optional
             Show the plots? Designed to be used in a notebook with
             %matplotlib inline.
-
         doForceCoM : `bool`, optional
             Force using centre-of-mass for centroiding?
 
@@ -460,20 +448,15 @@ class NonSpectralFocusAnalyzer():
         ----------
         dayObs : `int`
             The dayObs to use.
-
         seqNums : `list` of `int`
             The seqNums for the focus sweep to analyze.
-
         manualCentroid : `tuple` of `float`, optional
             Use this as the centroid position instead of fitting each image.
-
         doCheckDispersed : `bool`, optional
             Check if any of the seqNums actually refer to dispersed images?
-
         doDisplay : `bool`, optional
             Show the plots? Designed to be used in a notebook with
             %matplotlib inline.
-
         doForceCoM : `bool`, optional
             Force using centre-of-mass for centroiding?
 

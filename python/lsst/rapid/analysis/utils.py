@@ -55,7 +55,6 @@ def countPixels(maskedImage, maskPlane):
     ----------
     maskedImage : `lsst.afw.image.MaskedImage`
         The masked image,
-
     maskPlane : `str`
         The name of the bitmask.
 
@@ -78,7 +77,6 @@ def quickSmooth(data, sigma=2):
     ----------
     data : `np.array`
         The image data to smooth
-
     sigma : `float`, optional
         The size of the smoothing kernel.
 
@@ -109,10 +107,8 @@ def argMax2d(array):
     -------
     maxLocation : `tuple`
         The coords of the first instance of the max value
-
     unique : `bool`
         Whether it's the only location
-
     otherLocations : `list` of `tuple`
         List of the other max values' locations, empty if False
     """
@@ -153,7 +149,6 @@ def dayObsSeqNumToVisitId(dayObs, seqNum):
     ----------
     dayObs : `int`
         The dayObs.
-
     seqNum : `int`
         The seqNum.
 

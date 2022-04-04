@@ -63,7 +63,6 @@ def _dataIdToFilename(channel, dataId):
     ----------
     channel : `str`
         The name of the RubinTV channel
-
     dataId : `dict`
         The dataId
 
@@ -84,13 +83,10 @@ def _waitForDataProduct(butler, dataProduct, dataId, logger, maxTime=20):
     ----------
     butler : `lsst.daf.butler.Butler`
         The butler to use.
-
     dataProduct : `str`
         The dataProduct to wait for, e.g. postISRCCD or calexp etc
-
     logger : `logging.Logger`
         Logger
-
     maxTime : `int` or `float`
         The timeout, in seconds, to wait before giving up and returning None.
 
@@ -129,10 +125,8 @@ class Uploader():
         ----------
         channel : `str`
             The RubinTV channel to upload to.
-
         sourceFilename : `str`
             The full path and filename of the file to upload.
-
         uploadAsFilename : `str`, optional
             Optionally rename the file to this upon upload.
 
@@ -141,7 +135,6 @@ class Uploader():
         ValueError
             Raised if the specified channel is not in the list of existing
             channels as specified in CHANNELS
-
         RuntimeError
             Raised if the Google cloud storage is not installed/importable.
         """
@@ -191,7 +184,6 @@ class Watcher():
         ----------
         callback : `callable`
             The method to call, with the latest dataId as the argument.
-
         durationInSeconds : `int` or `float`
             How long to run for. This is approximate, as it assumes processing
             is instant. However, most use-cases will want to just use the -1

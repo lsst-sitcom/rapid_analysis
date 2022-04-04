@@ -78,10 +78,8 @@ def makeDefaultLatissButler(location, *, extraCollections=None, writeable=False)
     location : `str`
         The location for which to create the default butler. Valid values are
         'NCSA', 'NTS' and 'summit'.
-
     extraCollections : `list` of `str`
         Extra input collections to supply to the butler init.
-
     writable : `bool`, optional
         Whether to make a writable butler.
 
@@ -120,10 +118,8 @@ def datasetExists(butler, dataProduct, dataId, **kwargs):
     ----------
     butler : `lsst.daf.butler.Butler`
         The butler
-
     dataProduct : `str`
         The type of data product to check for
-
     dataId : `dict`
         The dataId of the dataProduct to check for
 
@@ -197,10 +193,8 @@ def getSeqNumsForDayObs(butler, day_obs, extraWhere=''):
     ----------
     butler : `lsst.daf.butler.Butler
         The butler to query.
-
     day_obs : `int` or `str`
         The day_obs for which the seq_nums are desired.
-
     extraWhere : `str`
         Any extra where conditions to add to the queryDimensionRecords call.
 
@@ -229,7 +223,6 @@ def sortRecordsByAttribute(records, attribute):
     ----------
     records : `list` of `dict`
         The records to be sorted.
-
     attribute : `str`
         The attribute to sort by.
 
@@ -305,7 +298,6 @@ def getExpIdFromDayObsSeqNum(butler, dataId):
     ----------
     butler : `lsst.daf.butler.Butler
         The butler to query.
-
     dataId : `dict`
         The dataId for which to return the exposure id.
 
@@ -325,7 +317,6 @@ def updateDataIdOrDataCord(dataId, **updateKwargs):
     ----------
     dataId : `dict`
         The dataId for which to return the exposure id.
-
     updateKwargs : `dict`
         The key value pairs add to the dataId or dataCoord.
 
@@ -352,7 +343,6 @@ def fillDataId(butler, dataId):
     ----------
     butler : `lsst.daf.butler.Butler`
         The butler.
-
     dataId : `dict`
         The dataId to fill.
 
@@ -427,7 +417,6 @@ def getExpRecordFromDataId(butler, dataId):
     ----------
     butler : `lsst.daf.butler.Butler`
         The butler.
-
     dataId : `dict`
         The dataId.
 
@@ -469,7 +458,6 @@ def getDayObsSeqNumFromExposureId(butler, dataId):
     ----------
     butler : `lsst.daf.butler.Butler`
         The butler.
-
     dataId : `dict`
         The dataId containing the exposure id.
 
@@ -507,10 +495,8 @@ def getDatasetRefForDataId(butler, datasetType, dataId):
     ----------
     butler : `lsst.daf.butler.Butler`
         The butler.
-
     datasetType : `str` or `datasetType`
         The dataset type.
-
     dataId : `dict`
         The dataId.
 
@@ -534,10 +520,8 @@ def removeDataProduct(butler, datasetType, dataId):
     ----------
     butler : `lsst.daf.butler.Butler`
         The butler.
-
     datasetType : `str` or `datasetType`
         The dataset type.
-
     dataId : `dict`
         The dataId.
 
@@ -651,21 +635,16 @@ def getLatissOnSkyDataIds(butler, skipTypes=('bias', 'dark', 'flat'), checkObjec
     ----------
     butler : `lsst.daf.butler.Butler`
         The butler.
-
     skipTypes : `list` of `str`
         Image types to exclude.
-
     checkObject : `bool`
         Check if the value of target_name (formerly OBJECT) is set and exlude
         if it is not.
-
     full : `bool`
         Return filled dataIds. Required for some analyses, but runs much
         (~30x) slower.
-
     startDate : `int`
         The day_obs to start at, inclusive.
-
     endDate : `int`
         The day_obs to end at, inclusive.
 

@@ -49,7 +49,6 @@ class Monitor():
     -------
     location : `str`
         The location. To be removed in DM-34238.
-
     fireflyDisplay : `lsst.afw.display.Display`
         A Firefly display instance.
 
