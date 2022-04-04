@@ -141,7 +141,7 @@ class Animator():
             logger.info(f"dIdsWithoutPngs = {dIdsWithoutPngs}")
 
         # check the datasets exist for the pngs which need remaking
-        missingData = [d for d in dIdsWithoutPngs if not datasetExists(butler, self.dataProductToPlot, d,
+        missingData = [d for d in dIdsWithoutPngs if not datasetExists(self.butler, self.dataProductToPlot, d,
                                                                        detector=0)]
 
         logger.info(f"Of the provided {len(self.dataIdList)} dataIds:")
@@ -212,7 +212,7 @@ class Animator():
         logger.info(f'Finished! Output at {self.outputFilename}')
 
     def _titleFromExp(self, exp, dataId):
-        expRecord = getExpRecordFromDataId(butler, dataId)
+        expRecord = getExpRecordFromDataId(self.butler, dataId)
         obj = expRecord.target_name
         expTime = expRecord.exposure_time
         filterCompound = expRecord.physical_filter
