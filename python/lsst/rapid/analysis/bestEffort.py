@@ -37,7 +37,16 @@ ALLOWED_REPOS = ['/repo/main', '/repo/LATISS', '/readonly/repo/main']
 
 
 class BestEffortIsr():
-    """Instantiate a BestEffortIsr object.
+    """Class for getting an assembled image with the maximum amount of isr.
+
+    BestEffortIsr.getExposure(dataId) returns an assembled image with as much
+    isr performed as possible, dictated by the calibration products available,
+    and optionally interpolates over cosmic rays. If an image image already
+    exists in the butler, it is returned (for the sake of speed), otherwise it
+    is generated and put(). Calibration products are loaded and cached to
+    improve performance.
+
+    This class uses the ``quickLookIsrTask``, see docs there for details.
 
     Acceptable repodir values are currently listed in ALLOWED_REPOS. This will
     be updated (removed) once DM-33849 is done.
