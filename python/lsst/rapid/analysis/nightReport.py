@@ -197,7 +197,7 @@ class NightReporter():
             size = 14
             if '-' in marker:
                 size += 5
-            h._legmarker.set_markersize(size)
+            h.set_markersize(size)
 
     def getAllValuesForKVPair(self, keyToGet, keyValPairAsTuple, uniqueOnly=False):
         """e.g. all the RA values for OBJECT=='HD 123'"""
@@ -356,16 +356,3 @@ class NightReporter():
             return [arg]
         assert(type(arg) == list), f"Expect list, got {arg}"
         return arg
-
-
-if __name__ == '__main__':
-    # TODO: DM-34239 Move this to be a butler-driven test
-    if True:
-        location = 'NCSA'
-        nightReporter = NightReporter(location, 20200220)
-        stars = nightReporter.getUniqueValuesForKey('OBJECT')
-        colorMap = nightReporter.makeStarColorAndMarkerMap(stars)
-        nightReporter.makePolarPlotForObjects(stars, withLines=False)
-    else:
-        nightReporter = loadReport('/home/mfl/nightReports/', "2020-02-20")
-        nightReporter.plotPerObjectAirMass()

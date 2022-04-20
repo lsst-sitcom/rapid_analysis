@@ -1,3 +1,24 @@
+# This file is part of rapid_analysis.
+#
+# Developed for the LSST Data Management System.
+# This product includes software developed by the LSST Project
+# (https://www.lsst.org).
+# See the COPYRIGHT file at the top-level directory of this distribution
+# for details of code ownership.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import os
 import subprocess
 import shutil
@@ -141,7 +162,7 @@ class Animator():
             logger.info(f"dIdsWithoutPngs = {dIdsWithoutPngs}")
 
         # check the datasets exist for the pngs which need remaking
-        missingData = [d for d in dIdsWithoutPngs if not datasetExists(butler, self.dataProductToPlot, d,
+        missingData = [d for d in dIdsWithoutPngs if not datasetExists(self.butler, self.dataProductToPlot, d,
                                                                        detector=0)]
 
         logger.info(f"Of the provided {len(self.dataIdList)} dataIds:")
@@ -212,7 +233,7 @@ class Animator():
         logger.info(f'Finished! Output at {self.outputFilename}')
 
     def _titleFromExp(self, exp, dataId):
-        expRecord = getExpRecordFromDataId(butler, dataId)
+        expRecord = getExpRecordFromDataId(self.butler, dataId)
         obj = expRecord.target_name
         expTime = expRecord.exposure_time
         filterCompound = expRecord.physical_filter
