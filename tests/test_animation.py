@@ -30,30 +30,25 @@ import lsst.utils.tests
 from lsst.rapid.analysis.animation import Animator
 
 import lsst.daf.butler as dafButler
-NOBUTLER = True
-try:
-    butler = dafButler.Butler('LATISS')
-    assert isinstance(butler, dafButler.Butler)
-    NOBUTLER = False
-except (FileNotFoundError):
-    print("No LATISS butler found, skipping butler-driven tests.")
 
 
 class AnimationTestCase(lsst.utils.tests.TestCase):
     """A test case for testing the animator."""
 
-    @unittest.skipIf(NOBUTLER, 'Skipping butler-driven test')
-    def setUp(self):
-        self.butler = dafButler.Butler('LATISS', instrument='LATISS', collections=['LATISS/raw/all'])
+    @classmethod
+    def setUpClass(cls):
+        try:
+            cls.butler = dafButler.Butler('LATISS', instrument='LATISS', collections=['LATISS/raw/all'])
+        except FileNotFoundError:
+            raise unittest.SkipTest("Skipping tests that require the LATISS butler repo.")
 
         # TODO: DM-34322 Change these to work with test data on the TTS once
         # data has been ingested there.
-        self.dataIds = [{'day_obs': 20200315, 'seq_num': 30, 'detector': 0},
-                        {'day_obs': 20200315, 'seq_num': 31, 'detector': 0}]
-        self.outputDir = tempfile.mkdtemp()
-        self.outputFilename = os.path.join(self.outputDir, 'testAnimation.mp4')
+        cls.dataIds = [{'day_obs': 20200315, 'seq_num': 30, 'detector': 0},
+                       {'day_obs': 20200315, 'seq_num': 31, 'detector': 0}]
+        cls.outputDir = tempfile.mkdtemp()
+        cls.outputFilename = os.path.join(cls.outputDir, 'testAnimation.mp4')
 
-    @unittest.skipIf(NOBUTLER, 'Skipping butler-driven test')
     def test_animation(self):
         animator = Animator(self.butler, self.dataIds, self.outputDir, self.outputFilename,
                             dataProductToPlot='raw',
