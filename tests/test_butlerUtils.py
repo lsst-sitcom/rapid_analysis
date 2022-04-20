@@ -19,13 +19,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Test cases for rapid_analysis butlerUtils."""
-
 import unittest
 from typing import Iterable
 import datetime
-# import itertools
-# import copy
 
 import os
 import lsst.utils.tests

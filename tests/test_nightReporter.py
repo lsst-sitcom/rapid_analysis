@@ -19,8 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Test cases for the NightReporter."""
-
 import unittest
 import tempfile
 from unittest import mock
@@ -36,7 +34,6 @@ import lsst.daf.butler as dafButler  # noqa: E402, N813
 
 
 class NightReporterTestCase(lsst.utils.tests.TestCase):
-    """A test case for testing the Night Reporter."""
 
     @classmethod
     def setUpClass(cls):
@@ -49,16 +46,26 @@ class NightReporterTestCase(lsst.utils.tests.TestCase):
         cls.seqNums = bu.getSeqNumsForDayObs(cls.butler, cls.dayObs)
         cls.nImages = len(cls.seqNums)
 
-        # TODO: DM-XXXXX remove 'NCSA' once we're using RFC-811 stuff
-        cls.reporter = NightReporter('NCSA', cls.dayObs)  # takes about 29s
+        # TODO: DM-34238 remove 'NCSA' once we're using RFC-811 stuff
+        # TODO: DM-33864 this ticket is very similar to the above, so they
+        # might well end up being combined, so noting both here.
+        # Do the init in setUpClass because this takes about 29s for 20200316
+        cls.reporter = NightReporter('NCSA', cls.dayObs)
 
-    def test_loadAndSave(self):
+    def test_saveAndLoad(self):
+        """Test that a NightReporter can save itself, and be loaded back.
+        """
         writeDir = tempfile.mkdtemp()
         saveReport(self.reporter, writeDir)
         loaded = loadReport(writeDir, self.dayObs)
         self.assertIsInstance(loaded, lsst.rapid.analysis.nightReport.NightReporter)
+        self.assertGreaterEqual(len(loaded.data), 1)
+        self.assertEqual(loaded.dayObs, self.dayObs)
 
     def test_printObsTable(self):
+        """Test that a the printObsTable() method prints out the correct
+        number of lines.
+        """
         with mock.patch('sys.stdout') as fake_stdout:
             self.reporter.printObsTable()
 
@@ -71,6 +78,8 @@ class NightReporterTestCase(lsst.utils.tests.TestCase):
         self.assertEqual(len(fake_stdout.mock_calls), 2*(tailNumber+1))
 
     def test_plotPerObjectAirMass(self):
+        """Test that a the per-object airmass plots runs.
+        """
         # We assume matplotlib is making plots, so just check that these
         # don't crash.
 
@@ -86,6 +95,11 @@ class NightReporterTestCase(lsst.utils.tests.TestCase):
         self.reporter.plotPerObjectAirMass(objects=self.reporter.stars[0], airmassOneAtTop=True)  # both
 
     def test_makePolarPlotForObjects(self):
+        """Test that a the polar coverage plotting code runs.
+        """
+        # We assume matplotlib is making plots, so just check that these
+        # don't crash.
+
         # test the default case
         self.reporter.makePolarPlotForObjects()
         # plot with only one object as a str not a list of str

@@ -19,8 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Test cases for animations."""
-
 import unittest
 import tempfile
 import os
@@ -33,7 +31,6 @@ import lsst.daf.butler as dafButler
 
 
 class AnimationTestCase(lsst.utils.tests.TestCase):
-    """A test case for testing the animator."""
 
     @classmethod
     def setUpClass(cls):
@@ -50,6 +47,9 @@ class AnimationTestCase(lsst.utils.tests.TestCase):
         cls.outputFilename = os.path.join(cls.outputDir, 'testAnimation.mp4')
 
     def test_animation(self):
+        """Test that the animator produces a large file without worrying about
+        the contents?
+        """
         animator = Animator(self.butler, self.dataIds, self.outputDir, self.outputFilename,
                             dataProductToPlot='raw',
                             remakePngs=True,
