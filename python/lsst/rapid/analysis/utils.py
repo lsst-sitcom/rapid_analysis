@@ -25,7 +25,6 @@ import lsst.afw.detection as afwDetect
 import lsst.afw.math as afwMath
 import lsst.pipe.base as pipeBase
 import lsst.utils.packages as packageUtils
-import logging
 
 from lsst.obs.lsst.translators.lsst import FILTER_DELIMITER
 from lsst.obs.lsst.translators.latiss import AUXTEL_LOCATION
@@ -34,7 +33,7 @@ from astro_metadata_translator import ObservationInfo
 
 __all__ = ["SIGMATOFWHM", "FWHMTOSIGMA", "EFD_CLIENT_MISSING_MSG", "GOOGLE_CLOUD_MISSING_MSG",
            "AUXTEL_LOCATION", "countPixels", "quickSmooth", "argMax2d", "getImageStats", "detectObjectsInExp",
-           "humanNameForCelestialObject", "getFocusFromHeader", "checkRubinTvExternalPackages",
+           "humanNameForCelestialObject", "getFocusFromHeader",
            "dayObsIntToString", "dayObsSeqNumToVisitId"]
 
 
@@ -349,49 +348,6 @@ def getFocusFromHeader(exp):
     if 'FOCUSZ' in md:
         return md['FOCUSZ']
     return None
-
-
-def checkRubinTvExternalPackages(exitIfNotFound=True, logger=None):
-    """Check whether the prerequsite installs for RubinTV are present.
-
-    Some packages which aren't distributed with any metapackage are required
-    to run RubinTV. This function is used to check if they're present so
-    that unprotected imports don't cause the package to fail to import. It also
-    allows checking in a singple place, given that all are necessary for
-    RubinTV's running.
-
-    Parameters
-    ----------
-    exitIfNotFound : `bool`
-        Terminate execution if imports are not present? Useful in bin scripts.
-    logger : `logging.Log`
-        The logger used to warn is packages are not present.
-    """
-    if not logger:
-        logger = logging.getLogger(__name__)
-
-    hasGoogleStorage = False
-    hasEfdClient = False
-    try:
-        from google.cloud import storage  # noqa: F401
-        hasGoogleStorage = True
-    except ImportError:
-        pass
-
-    try:
-        from lsst_efd_client import EfdClient  # noqa: F401
-        hasEfdClient = True
-    except ImportError:
-        pass
-
-    if not hasGoogleStorage:
-        logger.warning(GOOGLE_CLOUD_MISSING_MSG)
-
-    if not hasEfdClient:
-        logger.warning(EFD_CLIENT_MISSING_MSG)
-
-    if exitIfNotFound and (not hasGoogleStorage or not hasEfdClient):
-        exit()
 
 
 def checkStackSetup():
